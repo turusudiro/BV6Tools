@@ -20,6 +20,7 @@ namespace BV6Tools.Services.Database
             FeaturedCacheTableName = Database.SynchronizeSchema<FeaturedCacheDb>().Name;
 
             Database.SynchronizeSchema<ApplistCacheDb>();
+            Database.SynchronizeSchema<TicketDb>();
 
             CreateIfNotLoadedOptions = new(Database)
             {
