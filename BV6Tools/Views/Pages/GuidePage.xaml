@@ -1,0 +1,234 @@
+﻿<Page x:Class="BV6Tools.Views.Pages.GuidePage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:control="clr-namespace:BV6Tools.Views.Controls"
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+      xmlns:local="clr-namespace:BV6Tools.Views.Pages"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      xmlns:services="clr-namespace:BV6Tools.Services"
+      xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+      Title="GuidePage"
+      d:DataContext="{d:DesignInstance local:GuidePage,
+                                       IsDesignTimeCreatable=False}"
+      d:DesignHeight="450"
+      d:DesignWidth="800"
+      ui:Design.Background="{DynamicResource ApplicationBackgroundBrush}"
+      ui:Design.Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+      Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+      mc:Ignorable="d">
+    <Page.Resources>
+        <SolidColorBrush x:Key="TextSecondary"
+                         Color="{DynamicResource TextFillColorSecondary}" />
+        <SolidColorBrush x:Key="TextTertiary"
+                         Color="{DynamicResource TextFillColorTertiary}" />
+        <SolidColorBrush x:Key="TextDisabled"
+                         Color="{DynamicResource TextFillColorDisabled}" />
+        <Style TargetType="ui:TextBlock">
+            <Setter Property="LineHeight" Value="24" />
+        </Style>
+    </Page.Resources>
+    <StackPanel Margin="0,0,0,12">
+        <control:IconLabel Margin="0,0,0,4"
+                           Foreground="{StaticResource PaletteBlueBrush}"
+                           Label="Requirement"
+                           LabelFontSize="18"
+                           LabelFontWeight="SemiBold"
+                           Symbol="ClipboardTaskListLtr24"
+                           SymbolFontSize="24" />
+        <control:IconLabel Margin="0,4,0,4"
+                           Foreground="{StaticResource PaletteYellowBrush}"
+                           Label="Make sure to exclude BV6Tools folder from AV."
+                           LabelFontWeight="SemiBold"
+                           Symbol="Warning16"
+                           SymbolFontSize="20" />
+        <ui:TextBlock FontSize="14"
+                      TextWrapping="Wrap">
+            <Run FontSize="14"
+                 FontWeight="SemiBold"
+                 Text="GreenLuma (Stealth or Normal)" />
+            <LineBreak />
+            <Run Text="latest GreenLuma version from RIN, you can download from below" />
+            <Run Foreground="{StaticResource TextTertiary}"
+                 Text="(Account required)." />
+            <LineBreak />
+            <ui:HyperlinkButton Margin="0,4"
+                                VerticalAlignment="Center"
+                                Icon="{ui:SymbolIcon Symbol=Globe24}"
+                                NavigateUri="https://cs.rin.ru/forum/viewtopic.php?f=29&amp;t=103709">
+                Open GreenLuma Forum
+            </ui:HyperlinkButton>
+            <LineBreak />
+            <Run FontSize="14"
+                 FontWeight="SemiBold"
+                 Text="SteamTools / OpenSteamTool" />
+            <LineBreak />
+            Developer Mode required (for creating SymLink on Steam path).<LineBreak />
+            <ui:HyperlinkButton Margin="0,4"
+                                Icon="{ui:SymbolIcon Symbol=Open24}"
+                                NavigateUri="ms-settings:developers">
+                Open Developers Settings
+            </ui:HyperlinkButton>
+        </ui:TextBlock>
+        <control:IconLabel Margin="0,16,0,4"
+                           Foreground="{StaticResource PaletteGreenBrush}"
+                           Label="Getting Started"
+                           LabelFontSize="18"
+                           LabelFontWeight="Medium"
+                           Symbol="StyleGuide24"
+                           SymbolFontSize="24" />
+        <ui:TextBlock FontSize="14"
+                      TextWrapping="Wrap">
+            <Run FontWeight="SemiBold"
+                 Text="1. Set your Steam path" />
+            <LineBreak />
+            <Run Text="Go to Settings → Inject → Steam Path and point it to your Steam folder (e.g. C:\Program Files (x86)\Steam)." />
+            <LineBreak />
+            <Run Foreground="{DynamicResource TextTertiary}"
+                 Text="By default, BV6Tools will auto-detect your Steam path from registry." />
+            <LineBreak />
+            <LineBreak />
+            <Run FontWeight="SemiBold"
+                 Text="2. Choose an injection mode" />
+            <LineBreak />
+            <Run Text="Go to Settings → Inject → Mode and pick GreenLuma, SteamTools, or OpenSteamTool." />
+        </ui:TextBlock>
+        <control:IconLabel Margin="0,16,0,4"
+                           Foreground="{StaticResource PaletteGreenBrush}"
+                           Label="Injection Modes"
+                           LabelFontSize="16"
+                           LabelFontWeight="Medium"
+                           Symbol="Syringe24"
+                           SymbolFontSize="24" />
+        <ui:TextBlock FontSize="14"
+                      TextWrapping="Wrap">
+            <Run Foreground="{StaticResource TextTertiary}"
+                 Text="{Binding GreenLumaLimit,
+                                StringFormat='{}Note: GreenLuma has limit {0} Appids.',
+                                Mode=OneWay}" />
+            <LineBreak />
+            <Run FontWeight="SemiBold"
+                 Text="GreenLuma (Stealth)" />
+            <Run Foreground="{StaticResource TextTertiary}"
+                 Text="(Recommended)" />
+            <LineBreak />
+            <Run Text="Common use case for family sharing bypass and simple unlocker." />
+            <LineBreak />
+            <LineBreak />
+            <Run FontWeight="SemiBold"
+                 Text="GreenLuma (Normal)" />
+            <LineBreak />
+            <Run Text="For bypassing D Token with provided ETicket." />
+            <LineBreak />
+            <LineBreak />
+            <Run FontWeight="SemiBold"
+                 Text="SteamTools" />
+            <LineBreak />
+            <Run Text="Steam unlocker from China for games and DLCs." />
+            <LineBreak />
+            <LineBreak />
+            <Run FontWeight="SemiBold"
+                 Text="OpenSteamTool" />
+            <LineBreak />
+            An open-source alternative to SteamTools.<LineBreak />
+            Hot Reload (unlock appids without restarting Steam) is only supported in this mode.<LineBreak />
+            Configure your opensteamtool.toml (empty by default) under BV6Tools/Data/OpenSteamTool/opensteamtool.toml.<LineBreak />
+        </ui:TextBlock>
+        <control:IconLabel Margin="0,0,0,4"
+                           Foreground="{StaticResource PaletteYellowBrush}"
+                           Label="Hot-Reload Notes"
+                           LabelFontWeight="SemiBold"
+                           Symbol="Lightbulb20"
+                           SymbolFontSize="20" />
+        <ui:TextBlock FontSize="14">
+            - Save your changes on List, Depot, or Lua page before anything!<LineBreak />
+            - Don't launch games from Library page while using OpenSteamTool mode. If you already did, just stop and restart Steam from the Home page.</ui:TextBlock>
+        <control:IconLabel Margin="0,16,0,4"
+                           Foreground="{StaticResource PaletteGreenBrush}"
+                           Label="Start Injecting"
+                           LabelFontSize="16"
+                           LabelFontWeight="Medium"
+                           Symbol="Rocket20"
+                           SymbolFontSize="24" />
+        <ui:TextBlock FontSize="14"
+                      TextWrapping="Wrap">
+            After setting up required files, start adding appids by :<LineBreak />
+            - Searching from Search Page and click (+)<LineBreak />
+            - Click (+) on Home Page
+            from Featured Games<LineBreak />
+            - Manually add game or dlc in List Page<LineBreak />
+            - Use Scan installed games from Depot Page<LineBreak />
+            You can also drop a zip containing lua files anywhere in Lua Page,
+            it'll automatically parse appids, manifest ids, save .manifest files in BV6Tools/data/manifest/(appid) and (SteamPath)/depotcache,
+            then dump available depot keys into (SteamPath)/config/config.vdf<LineBreak />
+            <LineBreak />
+            If you are done, don't forget to Save any changes from added appids, and click<Run FontWeight="Medium"
+                 Text=" Start Steam" />
+            button on Home Page.<LineBreak />
+            <LineBreak />
+            BV6Tools will automatically clean up injection files after Steam exits, you can disable this feature in Settings &gt; Disable Background Worker.</ui:TextBlock>
+        <control:IconLabel Margin="0,16,0,8"
+                           Foreground="{StaticResource PaletteGreenBrush}"
+                           Label="Denuvo"
+                           LabelFontSize="16"
+                           LabelFontWeight="Medium"
+                           Symbol="ShieldLock24"
+                           SymbolFontSize="24" />
+        <ui:TextBlock FontSize="14"
+                      TextWrapping="Wrap">
+            <Run FontWeight="SemiBold"
+                 Foreground="{StaticResource PaletteRedBrush}"
+                 Text="Note: " />
+            <Run Text="Only supported for GreenLuma Normal Mode or OpenSteamTool Mode." />
+            <LineBreak />
+            <Run FontWeight="SemiBold"
+                 Text="1. Generate a ticket" />
+            <Run Text="from the Ticket page." />
+            <LineBreak />
+            <Run FontWeight="SemiBold"
+                 Text="2. Enable your apps" />
+            <Run Text="on the List page for each AppID." />
+            <LineBreak />
+            <Run FontWeight="SemiBold"
+                 Text="3. Start inject" />
+            <Run Text="by clicking" />
+            <Run FontWeight="SemiBold"
+                 Text="Start Steam" />
+            <Run Text="on the Home page." />
+            <LineBreak />
+            <Run Text="BV6Tools will automatically configure available tickets based on the Applist for each mode." /></ui:TextBlock>
+        <control:IconLabel Margin="0,16,0,8"
+                           Foreground="{StaticResource PaletteGreenBrush}"
+                           Label="Settings"
+                           LabelFontSize="16"
+                           LabelFontWeight="Medium"
+                           Symbol="Settings24"
+                           SymbolFontSize="24" />
+        <control:IconLabel Margin="0,0,0,4"
+                           Foreground="{StaticResource PaletteGreenBrush}"
+                           Label="Appearance &amp; Behavior"
+                           LabelFontSize="16"
+                           LabelFontWeight="Medium"
+                           Symbol="PaintBrush24"
+                           SymbolFontSize="24" />
+        <ui:TextBlock FontSize="14"
+                      TextWrapping="Wrap">
+            <Run FontWeight="SemiBold"
+                 Text="Startup Behavior" />
+            <LineBreak />
+            <Run FontWeight="SemiBold"
+                 Text="Disabled :" />
+            <Run Text="Disabled BV6Tools running on system startup." />
+            <LineBreak />
+            <Run FontWeight="SemiBold"
+                 Text="Start Minimized :" />
+            <Run Text="BV6Tools launches minimized to tray automatically on system startup." />
+            <LineBreak />
+            <Run FontWeight="SemiBold"
+                 Text="Start and Inject :" />
+            <Run Text="On Windows startup, BV6Tools intercepts Steam's autostart, injects immediately. Useful if you want automatically inject on startup." />
+            <LineBreak />
+            <Run Foreground="{StaticResource TextTertiary}"
+                 Text="To exit the app automatically after injection, go to Settings &gt; On Inject &gt; Exit App." />
+        </ui:TextBlock>
+    </StackPanel>
+</Page>

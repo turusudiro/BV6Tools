@@ -1,0 +1,35 @@
+﻿<UserControl x:Class="BV6Tools.Views.Controls.GamesPagination"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:local="clr-namespace:BV6Tools.Views.Controls"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             x:Name="PaginationRoot"
+             d:DesignHeight="450"
+             d:DesignWidth="800"
+             mc:Ignorable="d" Loaded="OnLoaded"
+             Unloaded="OnUnloaded">
+    <DockPanel LastChildFill="True">
+        <ContentPresenter x:Name="PartnerPresenter"
+                          Content="{Binding PaginationControls,
+                                            ElementName=PaginationRoot}"
+                          DockPanel.Dock="{Binding ControlsPosition,
+                                                   ElementName=PaginationRoot}" />
+        <ui:VirtualizingItemsControl x:Name="GamesItemsView"
+                                     ItemTemplate="{Binding ItemTemplate,
+                                                            ElementName=PaginationRoot}"
+                                     ItemsSource="{Binding ItemsSource,
+                                                           ElementName=PaginationRoot}"
+                                     VirtualizingPanel.CacheLengthUnit="Item"
+                                     VirtualizingPanel.ScrollUnit="Pixel"
+                                     VirtualizingPanel.VirtualizationMode="Recycling">
+            <ui:VirtualizingItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <VirtualizingStackPanel IsItemsHost="True"
+                                            Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+            </ui:VirtualizingItemsControl.ItemsPanel>
+        </ui:VirtualizingItemsControl>
+    </DockPanel>
+</UserControl>

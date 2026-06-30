@@ -1,0 +1,443 @@
+﻿<Page x:Class="BV6Tools.Views.Pages.GameLaunchingPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:c="clr-namespace:GreenLumaCommon"
+      xmlns:control="clr-namespace:BV6Tools.Views.Controls"
+      xmlns:cv="clr-namespace:BV6Tools.Converters"
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+      xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
+      xmlns:local="clr-namespace:BV6Tools.Views.Pages"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      xmlns:mode="clr-namespace:BV6Tools.Services.Injector"
+      xmlns:sys="clr-namespace:System;assembly=mscorlib"
+      xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+      d:DataContext="{d:DesignInstance local:GameLaunchingPage,
+                                       IsDesignTimeCreatable=False}"
+      d:DesignHeight="450"
+      d:DesignWidth="800"
+      ui:Design.Background="{DynamicResource ApplicationBackgroundBrush}"
+      ui:Design.Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+      ui:NavigationView.HeaderContent="{Binding ViewModel.Game.AppId}"
+      Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+      ScrollViewer.CanContentScroll="False"
+      mc:Ignorable="d">
+    <Page.Resources>
+        <ResourceDictionary>
+            <cv:MultiValueToObjectArrayConverter x:Key="MultiValueToObjectArrayConverter" />
+            <cv:GreaterThanOrEqualConverter x:Key="GreaterThanOrEqualConverter" />
+            <cv:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+            <cv:EnumToBooleanConverter x:Key="EnumToBooleanConverter" />
+            <cv:EnumConverter x:Key="EnumConverter" />
+            <ObjectDataProvider x:Key="InjectModeProvider"
+                                MethodName="GetValues"
+                                ObjectType="{x:Type sys:Enum}">
+                <ObjectDataProvider.MethodParameters>
+                    <x:Type TypeName="mode:ProcessMode" />
+                </ObjectDataProvider.MethodParameters>
+            </ObjectDataProvider>
+        </ResourceDictionary>
+    </Page.Resources>
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="5*"
+                              MaxWidth="450" />
+            <ColumnDefinition Width="6*" />
+        </Grid.ColumnDefinitions>
+        <Grid Grid.Column="0">
+            <Grid.RowDefinitions>
+                <RowDefinition />
+                <RowDefinition Height="3*" />
+                <RowDefinition />
+            </Grid.RowDefinitions>
+            <Border CacheMode="BitmapCache"
+                    ClipToBounds="True"
+                    CornerRadius="10">
+                <Border.Background>
+                    <ImageBrush ImageSource="{Binding ViewModel.Game.ImageSource}"
+                                Stretch="UniformToFill" />
+                </Border.Background>
+                <Grid>
+                    <Border Height="25"
+                            VerticalAlignment="Bottom"
+                            Background="#88000000"
+                            CornerRadius="0,0,10,10"
+                            IsHitTestVisible="False">
+                        <control:MarqueeTextBlock CanvasMargin="3"
+                                                  FontSize="14"
+                                                  FontWeight="SemiBold"
+                                                  Text="{Binding ViewModel.Game.Name}" />
+                    </Border>
+                </Grid>
+            </Border>
+            <ui:DynamicScrollViewer Grid.Row="1"
+                                    Margin="0,8,-20,0"
+                                    Padding="0,0,-20,0"
+                                    IsScrollSpillEnabled="False">
+                <StackPanel Orientation="Vertical" Margin="0,0,20,0">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition />
+                            <RowDefinition />
+                        </Grid.RowDefinitions>
+                        <UniformGrid Rows="1">
+                            <ui:Button 
+                                       HorizontalAlignment="Stretch"
+                                       Appearance="Primary"
+                                       Command="{Binding ViewModel.PlayCommand}">
+                                <control:IconLabel Label="Play"
+                                                   Symbol="Play16" />
+                            </ui:Button>
+                            <ui:Button Margin="5,0,0,0" HorizontalAlignment="Stretch"
+                                       IsHitTestVisible="False">
+                                <ui:Button.Style>
+                                    <Style BasedOn="{StaticResource {x:Type ui:Button}}"
+                                           TargetType="ui:Button">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Setter Property="Appearance" Value="Success" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding ViewModel.IsLimit}"
+                                                         Value="True">
+                                                <Setter Property="Appearance" Value="Danger" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding ViewModel.Mode}"
+                                                         Value="{x:Static mode:ProcessMode.GreenLumaNormal}">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding ViewModel.Mode}"
+                                                         Value="{x:Static mode:ProcessMode.GreenLumaStealth}">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ui:Button.Style>
+                                <ui:TextBlock TextAlignment="Center">
+                                    <ui:TextBlock.Text>
+                                        <MultiBinding StringFormat="{}{0}/{1}">
+                                            <Binding Path="ViewModel.Appids.Count" />
+                                            <Binding Path="ViewModel.LimitMax" />
+                                        </MultiBinding>
+                                    </ui:TextBlock.Text>
+                                </ui:TextBlock>
+                            </ui:Button>
+                            <ui:Button Margin="5,0,0,0"
+                                       HorizontalAlignment="Stretch"
+                                       Appearance="Primary"
+                                       Command="{Binding ViewModel.AddToListCommand}"
+                                       Visibility="{Binding ViewModel.IsAddToListVisible,
+                                                            Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <control:IconLabel Label="List"
+                                                   Symbol="Add12" />
+                            </ui:Button>
+                        </UniformGrid>
+                    </Grid>
+                    <ui:ToggleSwitch Margin="0,12,0,0"
+                                     IsChecked="{Binding ViewModel.Unlock_Base}">
+                        <control:IconLabel Label="Unlock Base Game"
+                                           Symbol="Games20"
+                                           SymbolFontSize="20" />
+                    </ui:ToggleSwitch>
+                    <ui:ToggleSwitch Margin="0,4,0,0"
+                                     IsChecked="{Binding ViewModel.Unlock_DLC}">
+                        <control:IconLabel Label="Unlock DLC"
+                                           Symbol="AppsAddIn24"
+                                           SymbolFontSize="20" />
+                    </ui:ToggleSwitch>
+                    <control:IconLabel Margin="0,8,0,0"
+                                       Label="Mode"
+                                       Symbol="Syringe24"
+                                       SymbolFontSize="20" />
+                    <ComboBox Margin="0,8,0,0"
+                              ItemsSource="{Binding Source={StaticResource InjectModeProvider}}"
+                              SelectedItem="{Binding ViewModel.Mode}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <ui:TextBlock Text="{Binding Converter={StaticResource EnumConverter}}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <ui:ToggleSwitch Margin="0,12,0,0"
+                                     IsChecked="{Binding ViewModel.OnlineFix}">
+                        <ui:ToggleSwitch.Style>
+                            <Style BasedOn="{StaticResource {x:Type ui:ToggleSwitch}}"
+                                   TargetType="ui:ToggleSwitch">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ViewModel.Mode,
+                                                                   Converter={StaticResource EnumToBooleanConverter},
+                                                                   ConverterParameter={x:Static mode:ProcessMode.OpenSteamTool}}"
+                                                 Value="True">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ui:ToggleSwitch.Style>
+                        <control:IconLabel Label="Online Fix"
+                                           Symbol="GlobeAdd24" />
+                    </ui:ToggleSwitch>
+                </StackPanel>
+            </ui:DynamicScrollViewer>
+
+            <DockPanel Grid.Row="2"
+                       Margin="0,15"
+                       VerticalAlignment="Bottom">
+                <ui:Button Margin="0,0,8,0"
+                           Appearance="Primary"
+                           Command="{Binding ViewModel.SaveCommand}">
+                    <control:IconLabel Label="Save"
+                                       Symbol="Save16" />
+                </ui:Button>
+                <ui:Button Command="{Binding ViewModel.UndoCommand}">
+                    <control:IconLabel Label="Undo"
+                                       Symbol="ArrowUndo16" />
+                </ui:Button>
+            </DockPanel>
+        </Grid>
+        <Grid Grid.Column="1"
+              Margin="20,0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            <DockPanel Grid.Row="0">
+                <ui:TextBlock VerticalAlignment="Center"
+                              FontSize="20"
+                              FontWeight="SemiBold"
+                              Text="DLC" />
+                <StackPanel Margin="0,0,8,0"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Center"
+                            Orientation="Horizontal">
+                    <Grid>
+                        <ui:Flyout Closed="Flyout_Closed"
+                                   IsOpen="{Binding ViewModel.IsFlyoutOpen}"
+                                   Placement="Bottom">
+                            <StackPanel MinWidth="200">
+                                <ui:TextBox x:Name="NewDlcName"
+                                            Margin="0,0,0,10"
+                                            PlaceholderText="Name" />
+                                <ui:NumberBox x:Name="NewDlcAppid"
+                                              Margin="0,0,0,10"
+                                              PlaceholderText="Appid" />
+                                <Grid Margin="0,0,0,10"
+                                      HorizontalAlignment="Stretch">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <ui:Button HorizontalAlignment="Stretch"
+                                               Appearance="Secondary"
+                                               Command="{Binding ViewModel.ButtonCancelClickCommand}"
+                                               Content="Cancel">
+                                        <ui:Button.CommandParameter>
+                                            <MultiBinding Converter="{StaticResource MultiValueToObjectArrayConverter}">
+                                                <Binding ElementName="NewDlcName" />
+                                                <Binding ElementName="NewDlcAppid" />
+                                            </MultiBinding>
+                                        </ui:Button.CommandParameter>
+                                    </ui:Button>
+                                    <ui:Button Grid.Column="1"
+                                               HorizontalAlignment="Stretch"
+                                               Appearance="Primary"
+                                               Command="{Binding ViewModel.ButtonSaveClickCommand}"
+                                               Content="Save">
+                                        <ui:Button.CommandParameter>
+                                            <MultiBinding Converter="{StaticResource MultiValueToObjectArrayConverter}">
+                                                <Binding ElementName="NewDlcName"
+                                                         Path="Text" />
+                                                <Binding ElementName="NewDlcAppid"
+                                                         Path="Value" />
+                                            </MultiBinding>
+                                        </ui:Button.CommandParameter>
+                                    </ui:Button>
+                                </Grid>
+                            </StackPanel>
+                        </ui:Flyout>
+                        <ui:Button Margin="0,0,5,0"
+                                   VerticalContentAlignment="Center"
+                                   Appearance="Success"
+                                   Command="{Binding ViewModel.ButtonClickCommand}"
+                                   ToolTip="Add new DLC">
+                            <control:IconLabel Label="DLC"
+                                               Symbol="AddCircle12" />
+                        </ui:Button>
+                    </Grid>
+                    <ui:Button Appearance="Info"
+                               Command="{Binding ViewModel.RefreshCommand}"
+                               CommandParameter="{Binding}"
+                               ToolTip="Refresh Available DLC">
+                        <control:IconLabel Label="DLC"
+                                           Symbol="ArrowClockwise12" />
+                    </ui:Button>
+                </StackPanel>
+            </DockPanel>
+            <ui:CardControl Grid.Row="1"
+                            Margin="0,10"
+                            VerticalAlignment="Top">
+                <ui:CardControl.Header>
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition />
+                        </Grid.RowDefinitions>
+                        <Grid.Style>
+                            <Style TargetType="Grid">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ViewModel.Game.DLC.Count,
+                                                                   Converter={StaticResource GreaterThanOrEqualConverter},
+                                                                   ConverterParameter=1}"
+                                                 Value="True">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding ViewModel.Unlock_DLC}"
+                                                 Value="False">
+                                        <Setter Property="Opacity" Value="0.5" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Grid.Style>
+                        <StackPanel IsEnabled="{Binding ViewModel.Unlock_DLC}">
+                            <ui:TextBlock HorizontalAlignment="Center">
+                                <ui:TextBlock.Text>
+                                    <MultiBinding StringFormat="{}{0}/{1}">
+                                        <Binding Path="ViewModel.DLCCount" />
+                                        <Binding Path="ViewModel.Game.DLC.Count" />
+                                    </MultiBinding>
+                                </ui:TextBlock.Text>
+                            </ui:TextBlock>
+                            <DockPanel Margin="0,0,15,10">
+                                <ui:Button Appearance="Danger"
+                                           Command="{Binding ViewModel.RemoveAllDLCCommand}"
+                                           DockPanel.Dock="Right"
+                                           Icon="{ui:SymbolIcon Symbol=Delete12}" />
+                                <CheckBox Command="{Binding ViewModel.SelectAllCommand}"
+                                          CommandParameter="{Binding RelativeSource={RelativeSource Self}}"
+                                          Content="Enable All"
+                                          IsChecked="{Binding ViewModel.SelectAll,
+                                                              Mode=OneWay}"
+                                          IsThreeState="True" />
+                            </DockPanel>
+                            <ui:AutoSuggestBox Margin="11,0,15,10"
+                                               Icon="{ui:SymbolIcon Search24}"
+                                               IsSuggestionListOpen="False"
+                                               MaxSuggestionListHeight="170"
+                                               OriginalItemsSource="{Binding ViewModel.Game.DLC,
+                                                                             Mode=OneWay}"
+                                               PlaceholderText="Appid or DLC Name"
+                                               Text="{Binding ViewModel.SearchText,
+                                                              Mode=TwoWay,
+                                                              UpdateSourceTrigger=PropertyChanged}"
+                                               UseLayoutRounding="True">
+                                <ui:AutoSuggestBox.Style>
+                                    <Style BasedOn="{StaticResource {x:Type ui:AutoSuggestBox}}"
+                                           TargetType="ui:AutoSuggestBox">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding ViewModel.Game.DLC.Count,
+                                                                           Converter={StaticResource GreaterThanOrEqualConverter},
+                                                                           ConverterParameter=2}"
+                                                         Value="True">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ui:AutoSuggestBox.Style>
+                            </ui:AutoSuggestBox>
+                        </StackPanel>
+                        <ui:VirtualizingItemsControl Grid.Row="1"
+                                                     Focusable="{Binding ViewModel.Unlock_DLC}"
+                                                     IsEnabled="{Binding ViewModel.Unlock_DLC}"
+                                                     ItemsSource="{Binding ViewModel.Game.DLCView}"
+                                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                                     VirtualizingPanel.CacheLengthUnit="Item"
+                                                     VirtualizingPanel.IsContainerVirtualizable="True"
+                                                     VirtualizingPanel.ScrollUnit="Pixel"
+                                                     VirtualizingPanel.VirtualizationMode="Recycling">
+                            <ui:VirtualizingItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <VirtualizingStackPanel />
+                                </ItemsPanelTemplate>
+                            </ui:VirtualizingItemsControl.ItemsPanel>
+                            <ui:VirtualizingItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="6*" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <CheckBox Command="{Binding RelativeSource={RelativeSource AncestorType={x:Type Page}},
+                                                                    Path=DataContext.ViewModel.DlcCheckedCommand}"
+                                                  CommandParameter="{Binding}"
+                                                  IsChecked="{Binding IsEnabled}"
+                                                  IsEnabled="{Binding DataContext.ViewModel.Unlock_DLC,
+                                                                      RelativeSource={RelativeSource AncestorType={x:Type Page}}}"
+                                                  ToolTip="{Binding Name}">
+                                            <CheckBox.Content>
+                                                <TextBlock TextTrimming="CharacterEllipsis">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Text">
+                                                                <Setter.Value>
+                                                                    <MultiBinding StringFormat="{}{0} - {1}">
+                                                                        <Binding Path="AppId" />
+                                                                        <Binding Path="Name" />
+                                                                    </MultiBinding>
+                                                                </Setter.Value>
+                                                            </Setter>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding Name}"
+                                                                             Value="{x:Null}">
+                                                                    <Setter Property="Text" Value="{Binding AppId}" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </CheckBox.Content>
+                                        </CheckBox>
+                                        <CheckBox Command="{Binding RelativeSource={RelativeSource AncestorType={x:Type Page}},
+                                                                    Path=DataContext.ViewModel.DlcCheckedCommand}"
+                                                  CommandParameter="{Binding}"
+                                                  IsChecked="{Binding IsEnabled}"
+                                                  IsEnabled="{Binding DataContext.ViewModel.Unlock_DLC,
+                                                                      RelativeSource={RelativeSource AncestorType={x:Type Page}}}"
+                                                  ToolTip="{Binding Name}"
+                                                  Visibility="Collapsed">
+                                            <ui:TextBlock TextTrimming="CharacterEllipsis">
+                                                <TextBlock.Text>
+                                                    <MultiBinding StringFormat="{}{0} - {1}">
+                                                        <Binding Path="AppId" />
+                                                        <Binding FallbackValue="Unknown App"
+                                                                 Path="Name"
+                                                                 TargetNullValue="Unknown App" />
+                                                    </MultiBinding>
+                                                </TextBlock.Text>
+                                            </ui:TextBlock>
+                                        </CheckBox>
+                                        <ui:Button Grid.Column="1"
+                                                   Margin="0,0,5,5"
+                                                   HorizontalAlignment="Right"
+                                                   Appearance="Primary"
+                                                   Command="{Binding DataContext.ViewModel.EditDLCCommand,
+                                                                     RelativeSource={RelativeSource AncestorType=Page}}"
+                                                   CommandParameter="{Binding}"
+                                                   Icon="{ui:SymbolIcon Symbol=Edit16}" />
+                                        <ui:Button Grid.Column="2"
+                                                   Margin="0,0,15,5"
+                                                   HorizontalAlignment="Right"
+                                                   Appearance="Danger"
+                                                   Command="{Binding DataContext.ViewModel.RemoveDLCCommand,
+                                                                     RelativeSource={RelativeSource AncestorType=Page}}"
+                                                   CommandParameter="{Binding}"
+                                                   Icon="{ui:SymbolIcon Symbol=Delete16}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ui:VirtualizingItemsControl.ItemTemplate>
+                        </ui:VirtualizingItemsControl>
+                    </Grid>
+                </ui:CardControl.Header>
+            </ui:CardControl>
+        </Grid>
+    </Grid>
+</Page>

@@ -1,0 +1,204 @@
+﻿<UserControl x:Class="BV6Tools.Views.Controls.GameCard"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:behaviors="clr-namespace:BV6Tools.Behaviors"
+             xmlns:cv="clr-namespace:BV6Tools.Converters"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
+             xmlns:local="clr-namespace:BV6Tools.Views.Controls"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             x:Name="gamecardroot"
+             d:DataContext="{d:DesignInstance local:GameCard,
+                                              IsDesignTimeCreatable=False}"
+             d:DesignHeight="450"
+             d:DesignWidth="800"
+             mc:Ignorable="d">
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <cv:WidthAndHeightToRectConverter x:Key="WidthAndHeightToRectConverter" />
+            <cv:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/Resources/GameCardAnimations.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </UserControl.Resources>
+    <Viewbox x:Name="viewbox"
+             Width="{Binding ViewBoxWidth,
+                             RelativeSource={RelativeSource AncestorType=UserControl}}"
+             Margin="{Binding ViewBoxMargin,
+                              RelativeSource={RelativeSource AncestorType=UserControl}}"
+             Stretch="Uniform">
+        <Border Width="460"
+                Height="215"
+                BorderBrush="White"
+                CacheMode="BitmapCache"
+                CornerRadius="10"
+                RenderTransformOrigin="0.5,0.5">
+            <Border.Clip>
+                <RectangleGeometry RadiusX="{Binding CornerRadius.TopLeft,
+                                                     RelativeSource={RelativeSource AncestorType={x:Type Border}}}"
+                                   RadiusY="{Binding RadiusX,
+                                                     RelativeSource={RelativeSource Self}}">
+                    <RectangleGeometry.Rect>
+                        <MultiBinding Converter="{StaticResource WidthAndHeightToRectConverter}">
+                            <Binding Path="ActualWidth"
+                                     RelativeSource="{RelativeSource AncestorType={x:Type Border}}" />
+                            <Binding Path="ActualHeight"
+                                     RelativeSource="{RelativeSource AncestorType={x:Type Border}}" />
+                        </MultiBinding>
+                    </RectangleGeometry.Rect>
+                </RectangleGeometry>
+            </Border.Clip>
+            <Border.RenderTransform>
+                <ScaleTransform x:Name="TileScaleTransform" ScaleX="1" ScaleY="1" />
+            </Border.RenderTransform>
+
+            <i:Interaction.Triggers>
+                <i:EventTrigger EventName="MouseEnter">
+                    <i:ControlStoryboardAction Storyboard="{StaticResource ScaleUpStoryboard}" />
+                    <i:CallMethodAction MethodName="StartScrolling"
+                                        TargetObject="{Binding ElementName=ScrollingText}" />
+                </i:EventTrigger>
+                <i:EventTrigger EventName="MouseLeave">
+                    <i:ControlStoryboardAction Storyboard="{StaticResource ScaleDownStoryboard}" />
+                    <i:CallMethodAction MethodName="StopScrolling"
+                                        TargetObject="{Binding ElementName=ScrollingText}" />
+                </i:EventTrigger>
+            </i:Interaction.Triggers>
+
+            <Grid>
+                <Grid>
+                    <ui:Image x:Name="ImageControl"
+                              HorizontalAlignment="Center"
+                              VerticalAlignment="Center"
+                              CacheMode="BitmapCache"
+                              Source="{Binding ImageSource,
+                                               Mode=OneWay}"
+                              Stretch="UniformToFill">
+                        <ui:Image.Style>
+                            <Style BasedOn="{StaticResource {x:Type ui:Image}}"
+                                   TargetType="ui:Image">
+                                <Setter Property="Visibility" Value="Visible" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ImageSource}"
+                                                 Value="{x:Null}">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ui:Image.Style>
+                    </ui:Image>
+                    <ui:ProgressRing x:Name="LoadingIndicator"
+                                     HorizontalAlignment="Center"
+                                     VerticalAlignment="Center"
+                                     IsIndeterminate="True">
+                        <ui:ProgressRing.Style>
+                            <Style TargetType="ui:ProgressRing">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ImageSource}"
+                                                 Value="{x:Null}">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ui:ProgressRing.Style>
+                    </ui:ProgressRing>
+                    <Rectangle x:Name="GlowHighlight"
+                               Width="{Binding ActualWidth,
+                                               RelativeSource={RelativeSource AncestorType=Border}}"
+                               Height="{Binding ActualHeight,
+                                                RelativeSource={RelativeSource AncestorType=Border}}"
+                               Opacity="1"
+                               RenderTransformOrigin="0.5,0.5">
+                        <Rectangle.Fill>
+                            <LinearGradientBrush x:Name="ShineBrush" StartPoint="0,0" EndPoint="0.5,0.5">
+                                <GradientStop x:Name="ShineStart" Offset="0" Color="#1AFFFFFF" />
+                                <GradientStop x:Name="ShineMid" Offset="0" Color="#B3FFFFFF" />
+                                <GradientStop x:Name="ShineStop" Offset="0" Color="#00FFFFFF" />
+                            </LinearGradientBrush>
+                        </Rectangle.Fill>
+                    </Rectangle>
+                </Grid>
+                <Border Width="50"
+                        Height="50"
+                        Margin="8"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Top"
+                        Panel.ZIndex="10"
+                        Background="#88000000"
+                        CornerRadius="8"
+                        Cursor="Hand"
+                        Visibility="{Binding AddButtonVisible,
+                                             RelativeSource={RelativeSource AncestorType=UserControl},
+                                             Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <Border.RenderTransform>
+                        <TranslateTransform x:Name="AddBtnScaleTransform" Y="-70" />
+                    </Border.RenderTransform>
+                    <i:Interaction.Triggers>
+                        <i:EventTrigger EventName="MouseLeftButtonDown">
+                            <i:InvokeCommandAction Command="{Binding AddCommand,
+                                                                     RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                   CommandParameter="{Binding AddCommandParameter,
+                                                                              RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                        </i:EventTrigger>
+                    </i:Interaction.Triggers>
+                    <ui:SymbolIcon FontSize="45"
+                                   Foreground="White"
+                                   Symbol="Add12" />
+                </Border>
+                <Border Width="50"
+                        Height="50"
+                        Margin="8,8,64,8"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Top"
+                        Panel.ZIndex="10"
+                        Background="#88000000"
+                        CornerRadius="8"
+                        Cursor="Hand"
+                        Visibility="{Binding DownloadButtonVisible,
+                                             RelativeSource={RelativeSource AncestorType=UserControl},
+                                             Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <Border.RenderTransform>
+                        <TranslateTransform x:Name="DownloadBtnScaleTransform"
+                                            Y="-70" />
+                    </Border.RenderTransform>
+                    <i:Interaction.Triggers>
+                        <i:EventTrigger EventName="MouseLeftButtonDown">
+                            <i:InvokeCommandAction Command="{Binding DownloadCommand,
+                                                                     RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                   CommandParameter="{Binding DownloadCommandParameter,
+                                                                              RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                        </i:EventTrigger>
+                    </i:Interaction.Triggers>
+                    <ui:SymbolIcon FontSize="45"
+                                   Foreground="White"
+                                   Symbol="ArrowDownload16" />
+                </Border>
+                <Border Height="50"
+                        VerticalAlignment="Bottom"
+                        Background="#88000000"
+                        ClipToBounds="True">
+                    <Border.RenderTransform>
+                        <TranslateTransform x:Name="BorderTranslateTransform" Y="50" />
+                    </Border.RenderTransform>
+                    <Canvas Margin="10">
+                        <TextBlock FontSize="25"
+                                   FontWeight="SemiBold"
+                                   Foreground="White"
+                                   Text="{Binding Text,
+                                                  ElementName=gamecardroot}"
+                                   TextTrimming="None"
+                                   TextWrapping="NoWrap">
+                            <i:Interaction.Behaviors>
+                                <behaviors:MarqueeOnOverflowBehavior x:Name="ScrollingText" />
+                            </i:Interaction.Behaviors>
+                        </TextBlock>
+                    </Canvas>
+                </Border>
+            </Grid>
+
+        </Border>
+    </Viewbox>
+</UserControl>

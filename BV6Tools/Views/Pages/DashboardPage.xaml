@@ -1,0 +1,279 @@
+﻿<Page x:Class="BV6Tools.Views.Pages.DashboardPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:control="clr-namespace:BV6Tools.Views.Controls"
+      xmlns:cv="clr-namespace:BV6Tools.Converters"
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+      xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
+      xmlns:local="clr-namespace:BV6Tools.Views.Pages"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+      x:Name="dashboardpage"
+      Title="DashboardPage"
+      Margin="0,32,0,0"
+      d:DataContext="{d:DesignInstance local:DashboardPage,
+                                       IsDesignTimeCreatable=False}"
+      d:DesignHeight="450"
+      d:DesignWidth="800"
+      ui:Design.Background="{DynamicResource ApplicationBackgroundBrush}"
+      ui:Design.Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+      Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+      ScrollViewer.CanContentScroll="False"
+      mc:Ignorable="d">
+    <Page.Resources>
+        <cv:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+    </Page.Resources>
+    <DockPanel>
+        <Grid Margin="0,10,0,10"
+              DockPanel.Dock="Bottom">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition />
+                <ColumnDefinition />
+            </Grid.ColumnDefinitions>
+            <StackPanel Orientation="Horizontal">
+                <ui:Button Margin="0,0,10,0"
+                           Command="{Binding ViewModel.StartSteamCommand}">
+                    <ui:Button.Style>
+                        <Style BasedOn="{StaticResource {x:Type ui:Button}}"
+                               TargetType="ui:Button">
+                            <Setter Property="Appearance" Value="Success" />
+                            <Setter Property="Content" Value="Start Steam" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding ViewModel.IsSteamRunning}"
+                                             Value="True">
+                                    <Setter Property="Content" Value="Stop Steam" />
+                                    <Setter Property="Appearance" Value="Caution" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ui:Button.Style>
+                </ui:Button>
+            </StackPanel>
+            <DockPanel Grid.Column="1"
+                       HorizontalAlignment="Right">
+                <control:IconLabel Margin="0,0,8,0"
+                                   Label="Profile"
+                                   Symbol="People12" />
+                <ComboBox x:Name="ProfileComboBox"
+                          SelectedItem="{Binding ViewModel.SelectedProfile}">
+                    <ComboBox.Resources>
+                        <CollectionViewSource x:Key="Profiles"
+                                              Source="{Binding ViewModel.Profiles}" />
+                    </ComboBox.Resources>
+                    <ComboBox.ItemsSource>
+                        <CompositeCollection>
+                            <CollectionContainer Collection="{Binding Source={StaticResource Profiles}}" />
+                        </CompositeCollection>
+                    </ComboBox.ItemsSource>
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <ui:TextBlock Text="{Binding ProfileName}" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+            </DockPanel>
+        </Grid>
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            <control:GamesPagination x:Name="GamesPage"
+                                     Margin="0,0,0,12"
+                                     IsAutoSlideEnabled="True"
+                                     ItemsSource="{Binding ViewModel.GamesView}">
+                <control:GamesPagination.PaginationControls>
+                    <DockPanel Margin="0,0,0,10">
+                        <StackPanel DockPanel.Dock="Right"
+                                    Orientation="Horizontal">
+                            <ui:Button Margin="0,0,8,0"
+                                       Appearance="Primary"
+                                       Command="{Binding ViewModel.RefreshFeaturedCommand,
+                                                         RelativeSource={RelativeSource AncestorType=Page}}"
+                                       Icon="{ui:SymbolIcon Symbol=ArrowCounterclockwise16,
+                                                            FontSize=20}" />
+                            <StackPanel Orientation="Horizontal"
+                                        Visibility="{Binding CanScrollPages,
+                                                             RelativeSource={RelativeSource AncestorType=control:GamesPagination},
+                                                             Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <ui:Button Margin="0,0,8,0"
+                                           Click="GoToPreviousPage"
+                                           Icon="{ui:SymbolIcon Symbol=ArrowCircleLeft20,
+                                                                FontSize=20}" />
+                                <ui:Button Click="GoToNextPage"
+                                           Icon="{ui:SymbolIcon Symbol=ArrowCircleRight20,
+                                                                FontSize=20}" />
+                            </StackPanel>
+                        </StackPanel>
+                        <ui:TextBlock VerticalAlignment="Center"
+                                      FontSize="24"
+                                      FontWeight="SemiBold"
+                                      Text="Featured Games"
+                                      TextTrimming="WordEllipsis" />
+                    </DockPanel>
+                </control:GamesPagination.PaginationControls>
+                <control:GamesPagination.ItemTemplate>
+                    <DataTemplate>
+                        <control:GameCard AddCommand="{Binding ViewModel.AddButtonGameCardCommand,
+                                                               RelativeSource={RelativeSource AncestorType=Page}}"
+                                          AddCommandParameter="{Binding}"
+                                          DownloadCommand="{Binding ViewModel.DownloadButtonGameCardCommand,
+                                                                    RelativeSource={RelativeSource AncestorType=Page}}"
+                                          DownloadCommandParameter="{Binding}"
+                                          MouseEnter="GameCard_MouseEnter"
+                                          MouseLeave="GameCard_MouseLeave"
+                                          Text="{Binding Name}"
+                                          ViewBoxMargin="{Binding ViewBoxMargin,
+                                                                  RelativeSource={RelativeSource AncestorType=control:GamesPagination}}"
+                                          ViewBoxWidth="{Binding ViewBoxWidth,
+                                                                 RelativeSource={RelativeSource AncestorType=control:GamesPagination}}">
+                            <i:Interaction.Triggers>
+                                <i:EventTrigger EventName="Loaded">
+                                    <i:InvokeCommandAction Command="{Binding ViewModel.LoadImageCommand,
+                                                                             RelativeSource={RelativeSource AncestorType=Page}}"
+                                                           CommandParameter="{Binding}" />
+                                </i:EventTrigger>
+                                <i:EventTrigger EventName="Unloaded">
+                                    <i:InvokeCommandAction Command="{Binding ViewModel.UnLoadImageCommand,
+                                                                             RelativeSource={RelativeSource AncestorType=Page}}"
+                                                           CommandParameter="{Binding}" />
+                                </i:EventTrigger>
+                            </i:Interaction.Triggers>
+                        </control:GameCard>
+                    </DataTemplate>
+                </control:GamesPagination.ItemTemplate>
+            </control:GamesPagination>
+            <Separator Grid.Row="1"
+                       Margin="0,0,0,5">
+                <Separator.RenderTransform>
+                    <ScaleTransform ScaleY="3" />
+                </Separator.RenderTransform>
+            </Separator>
+            <UniformGrid Grid.Row="2"
+                         Visibility="Collapsed">
+                <ui:CardAction Icon="{ui:SymbolIcon Symbol=BookOpen24}">
+                    <StackPanel>
+                        <ui:TextBlock FontSize="20"
+                                      FontWeight="Medium"
+                                      Text="Guide" />
+                        <ui:TextBlock Appearance="Disabled"
+                                      Text="Learn how to setup inject mode, etc."
+                                      TextTrimming="WordEllipsis" />
+                    </StackPanel>
+                </ui:CardAction>
+                <ui:CardAction Icon="{ui:SymbolIcon Symbol=TextBulletListSquare24}">
+                    <StackPanel>
+                        <ui:TextBlock FontSize="20"
+                                      FontWeight="Medium"
+                                      Text="List" />
+                        <ui:TextBlock Appearance="Disabled"
+                                      Text="Manage apps with DLC."
+                                      TextTrimming="WordEllipsis" />
+                    </StackPanel>
+                </ui:CardAction>
+                <ui:CardAction Icon="{ui:SymbolIcon Symbol=Box24}">
+                    <StackPanel>
+                        <ui:TextBlock FontSize="20"
+                                      FontWeight="Medium"
+                                      Text="Depot" />
+                        <ui:TextBlock Appearance="Disabled"
+                                      Text="Manage apps with Depot."
+                                      TextTrimming="WordEllipsis" />
+                    </StackPanel>
+                </ui:CardAction>
+                <ui:CardAction Icon="{ui:SymbolIcon Symbol=Settings24}">
+                    <StackPanel>
+                        <ui:TextBlock FontSize="20"
+                                      FontWeight="Medium"
+                                      Text="Settings" />
+                        <ui:TextBlock Appearance="Disabled"
+                                      Text="Configure inject mode, clean task on exit, etc."
+                                      TextTrimming="WordEllipsis" />
+                    </StackPanel>
+                </ui:CardAction>
+            </UniformGrid>
+            <Grid Grid.Row="3">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition />
+                </Grid.RowDefinitions>
+                <ui:TextBlock FontSize="24"
+                              FontWeight="SemiBold"
+                              Text="{Binding ViewModel.Apps.Count,
+                                             StringFormat={}Applist ({0} Unlocked)}" />
+                <ui:VirtualizingItemsControl Grid.Row="1"
+                                             Margin="10,10,0,10"
+                                             ItemsSource="{Binding ViewModel.AppsView}"
+                                             VirtualizingPanel.CacheLengthUnit="Pixel"
+                                             VirtualizingPanel.IsContainerVirtualizable="True"
+                                             VirtualizingPanel.IsVirtualizing="True"
+                                             VirtualizingPanel.ScrollUnit="Pixel"
+                                             VirtualizingPanel.VirtualizationMode="Recycling">
+                    <ui:VirtualizingItemsControl.Style>
+                        <Style TargetType="{x:Type ui:VirtualizingItemsControl}">
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="{x:Type ui:VirtualizingItemsControl}">
+                                        <ui:DynamicScrollViewer Margin="-42,0,-42,0"
+                                                                Padding="42,0,42,0"
+                                                                CanContentScroll="True"
+                                                                Timeout="1">
+                                            <ItemsPresenter />
+                                        </ui:DynamicScrollViewer>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ui:VirtualizingItemsControl.Style>
+                    <ui:VirtualizingItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <VirtualizingStackPanel />
+                        </ItemsPanelTemplate>
+                    </ui:VirtualizingItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <DockPanel Margin="0,0,10,0"
+                                       HorizontalAlignment="Left"
+                                       VerticalAlignment="Center"
+                                       ToolTip="{Binding}">
+                                <ui:TextBlock VerticalAlignment="Center"
+                                              DockPanel.Dock="Right">
+                                    <ui:TextBlock.Style>
+                                        <Style TargetType="ui:TextBlock">
+                                            <Setter Property="Text" Value="{Binding AppId, StringFormat='({0})'}" />
+                                            <Setter Property="Appearance" Value="Disabled" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Name}"
+                                                             Value="{x:Null}">
+                                                    <Setter Property="Appearance" Value="Primary" />
+                                                    <Setter Property="Text" Value="{Binding AppId}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </ui:TextBlock.Style>
+                                </ui:TextBlock>
+                                <ui:TextBlock Margin="0,0,6,0"
+                                              VerticalAlignment="Center"
+                                              Text="{Binding Name}"
+                                              TextTrimming="CharacterEllipsis">
+                                    <ui:TextBlock.Style>
+                                        <Style TargetType="ui:TextBlock">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Name}"
+                                                             Value="{x:Null}">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </ui:TextBlock.Style>
+                                </ui:TextBlock>
+                            </DockPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ui:VirtualizingItemsControl>
+            </Grid>
+        </Grid>
+    </DockPanel>
+</Page>

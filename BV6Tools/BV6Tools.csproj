@@ -1,0 +1,91 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.22621.0</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+	<AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+	<AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+	<PlatformTarget>x64</PlatformTarget>
+	<Platforms>AnyCPU;x64</Platforms>
+	<ApplicationIcon>bv6tools-icon.ico</ApplicationIcon>
+	<ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="AngleSharp" Version="1.5.0" />
+    <PackageReference Include="Generator.Equals" Version="4.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="9.0.7" />
+    <PackageReference Include="Microsoft.Toolkit.Uwp.Notifications" Version="7.1.3" />
+    <PackageReference Include="Microsoft.Xaml.Behaviors.Wpf" Version="1.1.142" />
+    <PackageReference Include="SharpCompress" Version="0.49.1" />
+    <PackageReference Include="SqlNado" Version="2.1.0" />
+    <PackageReference Include="SteamKit2" Version="3.4.0" />
+    <PackageReference Include="WPF-UI" Version="4.3.0" />
+    <PackageReference Include="WPF-UI.DependencyInjection" Version="4.3.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.1" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageReference Include="WPF-UI.Tray" Version="4.3.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="App.ico" />
+    <None Remove="Assets\bv6tools-icon-128.png" />
+    <None Remove="Assets\bv6tools-icon-16.png" />
+    <None Remove="Assets\bv6tools-icon-256.png" />
+    <None Remove="Assets\bv6tools-icon-32.png" />
+    <None Remove="Assets\bv6tools-icon-64.png" />
+    <None Remove="Assets\bv6tools-icon.ico" />
+    <None Remove="Assets\bv6tools-tray-128.png" />
+    <None Remove="Assets\bv6tools-tray-16.png" />
+    <None Remove="Assets\bv6tools-tray-256.png" />
+    <None Remove="Assets\bv6tools-tray-32.png" />
+    <None Remove="Assets\bv6tools-tray-64.png" />
+    <None Remove="Assets\bv6tools-tray.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="bv6tools-icon.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\bv6tools-icon-128.png" />
+    <Resource Include="Assets\bv6tools-icon-16.png" />
+    <Resource Include="Assets\bv6tools-icon-256.png" />
+    <Resource Include="Assets\bv6tools-icon-32.png" />
+    <Resource Include="Assets\bv6tools-icon-64.png" />
+    <Resource Include="Assets\bv6tools-icon.ico" />
+    <Resource Include="Assets\bv6tools-tray-128.png" />
+    <Resource Include="Assets\bv6tools-tray-16.png" />
+    <Resource Include="Assets\bv6tools-tray-256.png" />
+    <Resource Include="Assets\bv6tools-tray-32.png" />
+    <Resource Include="Assets\bv6tools-tray-64.png" />
+    <Resource Include="Assets\bv6tools-tray.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Update="Properties\Settings.Designer.cs">
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Settings.settings</DependentUpon>
+    </Compile>
+    <Compile Update="Views\Dialogs\EditDialog.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="Properties\Settings.settings">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+    </None>
+  </ItemGroup>
+	
+	<Target Name="DiagPlatform" AfterTargets="PrepareForBuild">
+</Target>
+	
+</Project>

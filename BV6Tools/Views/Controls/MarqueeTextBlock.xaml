@@ -1,0 +1,26 @@
+﻿<UserControl x:Class="BV6Tools.Views.Controls.MarqueeTextBlock"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
+             xmlns:behaviors="clr-namespace:BV6Tools.Behaviors"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             x:Name="Root">
+    <Grid ClipToBounds="True">
+        <ui:TextBlock Text="{Binding Text, ElementName=Root}"
+                      FontSize="{Binding FontSize, ElementName=Root}"
+                      FontWeight="{Binding FontWeight, ElementName=Root}"
+                      Visibility="Hidden" />
+        <Canvas Margin="{Binding CanvasMargin, ElementName=Root}">
+            <ui:TextBlock x:Name="ScrollingTextBlock"
+                          Text="{Binding Text, ElementName=Root}"
+                          FontSize="{Binding FontSize, ElementName=Root}"
+                          FontWeight="{Binding FontWeight, ElementName=Root}"
+                          TextTrimming="None"
+                          TextWrapping="NoWrap">
+                <i:Interaction.Behaviors>
+                    <behaviors:MarqueeOnOverflowBehavior EnableMarqueeImmediately="True" />
+                </i:Interaction.Behaviors>
+            </ui:TextBlock>
+        </Canvas>
+    </Grid>
+</UserControl>

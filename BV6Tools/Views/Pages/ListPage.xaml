@@ -1,0 +1,466 @@
+﻿<Page x:Class="BV6Tools.Views.Pages.ListPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:control="clr-namespace:BV6Tools.Views.Controls"
+      xmlns:cv="clr-namespace:BV6Tools.Converters"
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+      xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
+      xmlns:local="clr-namespace:BV6Tools.Views.Pages"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      xmlns:sharedVM="clr-namespace:BV6Tools.ViewModels.Shared"
+      xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+      Title="ListPage"
+      d:DataContext="{d:DesignInstance local:ListPage,
+                                       IsDesignTimeCreatable=False}"
+      d:DesignHeight="1173"
+      d:DesignWidth="800"
+      ui:Design.Background="{DynamicResource ApplicationBackgroundBrush}"
+      ui:Design.Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+      Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+      ScrollViewer.CanContentScroll="False"
+      mc:Ignorable="d">
+    <Page.Resources>
+        <cv:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+        <cv:MultiValueToObjectArrayConverter x:Key="MultiValueToObjectArrayConverter" />
+        <cv:GreaterThanOrEqualConverter x:Key="GreaterThanOrEqualConverter" />
+    </Page.Resources>
+    <Grid>
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <DockPanel Margin="0,0,0,10">
+                <ui:Button Margin="0,0,10,0"
+                           VerticalAlignment="Center"
+                           Appearance="Success"
+                           Command="{Binding ViewModel.AddGameCommand}"
+                           Content="Game"
+                           Icon="{ui:SymbolIcon Symbol=AppsAddIn24,
+                                                FontSize=23}" />
+                <ui:Button Margin="0,0,10,0"
+                           VerticalAlignment="Center"
+                           Appearance="Success"
+                           Command="{Binding ViewModel.AddNewDlcCommand}"
+                           Content="DLC"
+                           Icon="{ui:SymbolIcon Symbol=CubeAdd20,
+                                                FontSize=23}" />
+                <Grid>
+                    <ui:Flyout x:Name="infoflyout"
+                               VerticalAlignment="Stretch"
+                               Placement="Top">
+                        <StackPanel>
+                            <WrapPanel>
+                                <ui:SymbolIcon Margin="0,0,5,0"
+                                               Symbol="Edit16" />
+                                <ui:TextBlock Text="Edit app or dlc" />
+                            </WrapPanel>
+                            <WrapPanel>
+                                <ui:SymbolIcon Margin="0,0,5,0"
+                                               Symbol="ArrowCounterClockwise12" />
+                                <ui:TextBlock Text="Refresh app and all dlc info" />
+                            </WrapPanel>
+                            <WrapPanel>
+                                <ui:SymbolIcon Margin="0,0,5,0"
+                                               Symbol="Delete12" />
+                                <ui:TextBlock Text="Remove app or dlc" />
+                            </WrapPanel>
+                            <WrapPanel>
+                                <ui:SymbolIcon Margin="0,0,5,0"
+                                               Symbol="AddCircle20" />
+                                <ui:TextBlock Text="Add dlc" />
+                            </WrapPanel>
+                            <WrapPanel>
+                                <ui:SymbolIcon Margin="0,0,5,0"
+                                               Symbol="DeleteDismiss20" />
+                                <ui:TextBlock Text="Remove all dlc" />
+                            </WrapPanel>
+                        </StackPanel>
+                    </ui:Flyout>
+                    <ui:Button Margin="0,0,10,0"
+                               HorizontalAlignment="Right"
+                               FontSize="22"
+                               Icon="{ui:SymbolIcon Symbol=Info16}">
+                        <i:Interaction.Triggers>
+                            <i:EventTrigger EventName="Click">
+                                <i:ChangePropertyAction PropertyName="IsOpen"
+                                                        TargetObject="{Binding ElementName=infoflyout}"
+                                                        Value="True" />
+                            </i:EventTrigger>
+                        </i:Interaction.Triggers>
+                    </ui:Button>
+                </Grid>
+                <ui:AutoSuggestBox VerticalAlignment="Center"
+                                   Icon="{ui:SymbolIcon Search24}"
+                                   IsSuggestionListOpen="False"
+                                   MaxSuggestionListHeight="170"
+                                   OriginalItemsSource="{Binding ViewModel.Games,
+                                                                 Mode=OneWay}"
+                                   PlaceholderText="Appid or Game Name"
+                                   Text="{Binding ViewModel.SearchText,
+                                                  Mode=TwoWay,
+                                                  UpdateSourceTrigger=PropertyChanged}"
+                                   UseLayoutRounding="True" />
+            </DockPanel>
+            <ui:VirtualizingItemsControl Grid.Row="1"
+                                         ItemsSource="{Binding ViewModel.GamesView}"
+                                         VirtualizingPanel.CacheLength="3"
+                                         VirtualizingPanel.IsContainerVirtualizable="True"
+                                         VirtualizingPanel.ScrollUnit="Pixel"
+                                         VirtualizingPanel.VirtualizationMode="Recycling">
+                <ui:VirtualizingItemsControl.Style>
+                    <Style TargetType="{x:Type ui:VirtualizingItemsControl}">
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="{x:Type ui:VirtualizingItemsControl}">
+                                    <ui:DynamicScrollViewer Margin="-42,0,-42,0"
+                                                            Padding="42,0,42,0"
+                                                            CanContentScroll="True"
+                                                            Timeout="1">
+                                        <ItemsPresenter />
+                                    </ui:DynamicScrollViewer>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </ui:VirtualizingItemsControl.Style>
+                <ui:VirtualizingItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <VirtualizingStackPanel />
+                    </ItemsPanelTemplate>
+                </ui:VirtualizingItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="{x:Type sharedVM:AppViewModel}">
+                        <ui:CardExpander Margin="0,0,0,4"
+                                         ContentPadding="15,10">
+                            <ui:CardExpander.Header>
+                                <Grid Margin="0,0,4,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <CheckBox Grid.Column="0"
+                                              Margin="0,0,6,0"
+                                              VerticalAlignment="Center"
+                                              IsChecked="{Binding IsEnabled}" />
+                                    <DockPanel Grid.Column="1"
+                                               Margin="0,0,6,0"
+                                               HorizontalAlignment="Left"
+                                               VerticalAlignment="Center">
+                                        <ui:TextBlock VerticalAlignment="Center"
+                                                      DockPanel.Dock="Right">
+                                            <ui:TextBlock.Style>
+                                                <Style TargetType="ui:TextBlock">
+                                                    <Setter Property="Text" Value="{Binding AppId, StringFormat='({0})'}" />
+                                                    <Setter Property="Appearance" Value="Disabled" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Name}"
+                                                                     Value="{x:Null}">
+                                                            <Setter Property="Appearance" Value="Primary" />
+                                                            <Setter Property="Text" Value="{Binding AppId}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </ui:TextBlock.Style>
+                                        </ui:TextBlock>
+                                        <ui:TextBlock Margin="0,0,6,0"
+                                                      VerticalAlignment="Center"
+                                                      Text="{Binding Name}"
+                                                      TextTrimming="CharacterEllipsis"
+                                                      ToolTip="{Binding Name}">
+                                            <ui:TextBlock.Style>
+                                                <Style TargetType="ui:TextBlock">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Name}"
+                                                                     Value="{x:Null}">
+                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </ui:TextBlock.Style>
+                                        </ui:TextBlock>
+                                    </DockPanel>
+                                    <StackPanel Grid.Column="2"
+                                                Orientation="Horizontal">
+                                        <ui:Button Margin="0,0,4,0"
+                                                   Command="{Binding DataContext.ViewModel.EditCommand,
+                                                                     RelativeSource={RelativeSource AncestorType=Page}}"
+                                                   CommandParameter="{Binding}"
+                                                   Icon="{ui:SymbolIcon Edit16}" />
+                                        <ui:Button Margin="0,0,4,0"
+                                                   Appearance="Success"
+                                                   Command="{Binding DataContext.ViewModel.RefreshGameCommand,
+                                                                     RelativeSource={RelativeSource AncestorType=Page}}"
+                                                   CommandParameter="{Binding}"
+                                                   Icon="{ui:SymbolIcon ArrowCounterClockwise12}" />
+                                        <ui:Button Margin="0,0,4,0"
+                                                   Appearance="Danger"
+                                                   Command="{Binding DataContext.ViewModel.RemoveCommand,
+                                                                     RelativeSource={RelativeSource AncestorType=Page}}"
+                                                   CommandParameter="{Binding}"
+                                                   Icon="{ui:SymbolIcon Delete12}" />
+                                    </StackPanel>
+                                </Grid>
+                            </ui:CardExpander.Header>
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition />
+                                    <RowDefinition />
+                                    <RowDefinition />
+                                </Grid.RowDefinitions>
+                                <Label>
+                                    <ui:TextBlock>
+                                        <ui:TextBlock.Text>
+                                            <MultiBinding StringFormat="{}Available: {0}">
+                                                <Binding FallbackValue="0"
+                                                         Path="DLC.Count"
+                                                         TargetNullValue="0" />
+                                            </MultiBinding>
+                                        </ui:TextBlock.Text>
+                                    </ui:TextBlock>
+                                </Label>
+                                <StackPanel Grid.Row="1">
+                                    <DockPanel Margin="8,0,16,4">
+                                        <ui:Button Appearance="Danger"
+                                                   Command="{Binding DataContext.ViewModel.RemoveAllAppItemsCommand,
+                                                                     RelativeSource={RelativeSource AncestorType=Page}}"
+                                                   CommandParameter="{Binding}"
+                                                   DockPanel.Dock="Right"
+                                                   Icon="{ui:SymbolIcon Symbol=DeleteDismiss20,
+                                                                        FontSize=18}">
+                                            <ui:Button.Style>
+                                                <Style BasedOn="{StaticResource {x:Type ui:Button}}"
+                                                       TargetType="ui:Button">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding DLC.Count,
+                                                                                       Converter={StaticResource GreaterThanOrEqualConverter},
+                                                                                       ConverterParameter=2}"
+                                                                     Value="True">
+                                                            <Setter Property="Visibility" Value="Visible" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </ui:Button.Style>
+                                        </ui:Button>
+                                        <ui:Button Margin="0,0,4,0"
+                                                   Command="{Binding DataContext.ViewModel.AddNewDlcCommand,
+                                                                     RelativeSource={RelativeSource AncestorType=Page}}"
+                                                   CommandParameter="{Binding}"
+                                                   DockPanel.Dock="Right"
+                                                   Icon="{ui:SymbolIcon Symbol=AddCircle20,
+                                                                        FontSize=18}" />
+                                        <CheckBox Command="{Binding DataContext.ViewModel.SelectAllCheckedCommand,
+                                                                    RelativeSource={RelativeSource AncestorType=Page}}"
+                                                  CommandParameter="{Binding}"
+                                                  Content="Enable all"
+                                                  IsChecked="{Binding SelectAllDLC,
+                                                                      Mode=OneWay}"
+                                                  IsThreeState="True">
+                                            <CheckBox.Style>
+                                                <Style BasedOn="{StaticResource DefaultCheckBoxStyle}"
+                                                       TargetType="{x:Type CheckBox}">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding DLC.Count,
+                                                                                       Converter={StaticResource GreaterThanOrEqualConverter},
+                                                                                       ConverterParameter=2}"
+                                                                     Value="True">
+                                                            <Setter Property="Visibility" Value="Visible" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </CheckBox.Style>
+                                        </CheckBox>
+                                    </DockPanel>
+                                    <ui:AutoSuggestBox Margin="12,0,20,4"
+                                                       Icon="{ui:SymbolIcon Search24}"
+                                                       IsSuggestionListOpen="False"
+                                                       MaxSuggestionListHeight="170"
+                                                       OriginalItemsSource="{Binding DLC,
+                                                                                     Mode=OneWay}"
+                                                       PlaceholderText="Appid or DLC Name"
+                                                       UseLayoutRounding="True">
+                                        <ui:AutoSuggestBox.Style>
+                                            <Style BasedOn="{StaticResource {x:Type ui:AutoSuggestBox}}"
+                                                   TargetType="ui:AutoSuggestBox">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding DLC.Count,
+                                                                                   Converter={StaticResource GreaterThanOrEqualConverter},
+                                                                                   ConverterParameter=2}"
+                                                                 Value="True">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </ui:AutoSuggestBox.Style>
+                                        <i:Interaction.Triggers>
+                                            <i:EventTrigger EventName="TextChanged">
+                                                <i:InvokeCommandAction Command="{Binding DataContext.ViewModel.TextSearchItemChangedCommand,
+                                                                                         RelativeSource={RelativeSource AncestorType=Page}}">
+                                                    <i:InvokeCommandAction.CommandParameter>
+                                                        <MultiBinding Converter="{StaticResource MultiValueToObjectArrayConverter}">
+                                                            <Binding />
+                                                            <Binding Path="Text"
+                                                                     RelativeSource="{RelativeSource AncestorType=ui:AutoSuggestBox}" />
+                                                        </MultiBinding>
+                                                    </i:InvokeCommandAction.CommandParameter>
+                                                </i:InvokeCommandAction>
+                                            </i:EventTrigger>
+                                        </i:Interaction.Triggers>
+                                    </ui:AutoSuggestBox>
+                                </StackPanel>
+                                <ui:VirtualizingItemsControl Grid.Row="2"
+                                                             MaxHeight="250"
+                                                             ItemsSource="{Binding DLCView}"
+                                                             VirtualizingPanel.CacheLengthUnit="Item"
+                                                             VirtualizingPanel.IsContainerVirtualizable="True"
+                                                             VirtualizingPanel.ScrollUnit="Pixel"
+                                                             VirtualizingPanel.VirtualizationMode="Recycling">
+                                    <ui:VirtualizingItemsControl.Style>
+                                        <Style TargetType="{x:Type ui:VirtualizingItemsControl}">
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="{x:Type ui:VirtualizingItemsControl}">
+                                                        <ui:DynamicScrollViewer Margin="0,0,-15,0"
+                                                                                Padding="0,0,15,0"
+                                                                                CanContentScroll="True"
+                                                                                Timeout="1">
+                                                            <ItemsPresenter />
+                                                        </ui:DynamicScrollViewer>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                    </ui:VirtualizingItemsControl.Style>
+                                    <ui:VirtualizingItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <VirtualizingStackPanel />
+                                        </ItemsPanelTemplate>
+                                    </ui:VirtualizingItemsControl.ItemsPanel>
+                                    <ui:VirtualizingItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Margin="8,4,16,0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <CheckBox HorizontalAlignment="Stretch"
+                                                          VerticalAlignment="Center"
+                                                          IsChecked="{Binding IsEnabled}"
+                                                          ToolTip="{Binding Name}">
+                                                    <CheckBox.Content>
+                                                        <TextBlock TextTrimming="CharacterEllipsis">
+                                                            <TextBlock.Style>
+                                                                <Style TargetType="TextBlock">
+                                                                    <Setter Property="Text">
+                                                                        <Setter.Value>
+                                                                            <MultiBinding StringFormat="{}{0} - {1}">
+                                                                                <Binding Path="AppId" />
+                                                                                <Binding Path="Name" />
+                                                                            </MultiBinding>
+                                                                        </Setter.Value>
+                                                                    </Setter>
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding Name}"
+                                                                                     Value="{x:Null}">
+                                                                            <Setter Property="Text" Value="{Binding AppId}" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </TextBlock.Style>
+                                                        </TextBlock>
+                                                    </CheckBox.Content>
+                                                </CheckBox>
+                                                <ui:Button Grid.Column="1"
+                                                           Margin="0,0,4,0"
+                                                           Command="{Binding DataContext.ViewModel.EditItemCommand,
+                                                                             RelativeSource={RelativeSource AncestorType=Page}}"
+                                                           Icon="{ui:SymbolIcon Symbol=Edit16}"
+                                                           Tag="{Binding AppId}">
+                                                    <ui:Button.CommandParameter>
+                                                        <MultiBinding Converter="{StaticResource MultiValueToObjectArrayConverter}">
+                                                            <Binding />
+                                                            <Binding Path="DataContext"
+                                                                     RelativeSource="{RelativeSource AncestorType=ui:VirtualizingItemsControl}" />
+                                                        </MultiBinding>
+                                                    </ui:Button.CommandParameter>
+                                                </ui:Button>
+                                                <ui:Button Grid.Column="2"
+                                                           Margin="0,0,0,0"
+                                                           Appearance="Danger"
+                                                           Command="{Binding DataContext.ViewModel.RemoveItemCommand,
+                                                                             RelativeSource={RelativeSource AncestorType=Page}}"
+                                                           Icon="{ui:SymbolIcon Symbol=Delete16}">
+                                                    <ui:Button.CommandParameter>
+                                                        <MultiBinding Converter="{StaticResource MultiValueToObjectArrayConverter}">
+                                                            <Binding />
+                                                            <Binding Path="DataContext"
+                                                                     RelativeSource="{RelativeSource AncestorType=ui:VirtualizingItemsControl}" />
+                                                        </MultiBinding>
+                                                    </ui:Button.CommandParameter>
+                                                </ui:Button>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ui:VirtualizingItemsControl.ItemTemplate>
+                                </ui:VirtualizingItemsControl>
+                            </Grid>
+                        </ui:CardExpander>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ui:VirtualizingItemsControl>
+            <Grid Grid.Row="2"
+                  Margin="0,15">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <ui:Button Grid.Column="0"
+                           Margin="0,0,8,0"
+                           Appearance="Primary"
+                           Command="{Binding ViewModel.SaveCommand}">
+                    <control:IconLabel Label="Save"
+                                       Symbol="Save16" />
+                </ui:Button>
+                <ui:Button Grid.Column="1"
+                           Command="{Binding ViewModel.UndoCommand}">
+                    <control:IconLabel Label="Undo"
+                                       Symbol="ArrowUndo16" />
+                </ui:Button>
+                <Grid Grid.Column="2"
+                      Margin="12,0,12,0"
+                      VerticalAlignment="Center"
+                      ToolTip="{Binding ViewModel.ProgressText}"
+                      Visibility="{Binding ViewModel.IsProgressBarVisible,
+                                           Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition />
+                        <RowDefinition />
+                    </Grid.RowDefinitions>
+                    <ProgressBar Grid.Row="1"
+                                 IsIndeterminate="{Binding ViewModel.IsProgressBarIndeterminate}"
+                                 Maximum="{Binding ViewModel.MaxProgress}"
+                                 Value="{Binding ViewModel.CurrentProgress}" />
+                    <ui:TextBlock HorizontalAlignment="Center"
+                                  VerticalAlignment="Center"
+                                  Text="{Binding ViewModel.ProgressText,
+                                                 Mode=OneWay}"
+                                  TextTrimming="WordEllipsis" />
+                </Grid>
+                <ui:Button Grid.Column="3"
+                           Margin="0,0,10,0"
+                           Appearance="Danger"
+                           Command="{Binding ViewModel.CancelTaskCommand}"
+                           Content="Cancel"
+                           Visibility="{Binding ViewModel.CancelVisible,
+                                                Converter={StaticResource BooleanToVisibilityConverter}}" />
+            </Grid>
+        </Grid>
+    </Grid>
+</Page>

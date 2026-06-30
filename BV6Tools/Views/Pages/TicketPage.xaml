@@ -1,0 +1,229 @@
+﻿<Page x:Class="BV6Tools.Views.Pages.TicketPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:control="clr-namespace:BV6Tools.Views.Controls"
+      xmlns:cv="clr-namespace:BV6Tools.Converters"
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+      xmlns:local="clr-namespace:BV6Tools.Views.Pages"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      xmlns:sys="clr-namespace:System;assembly=mscorlib"
+      xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+      Title="TicketPage"
+      d:DataContext="{d:DesignInstance local:TicketPage,
+                                       IsDesignTimeCreatable=False}"
+      d:DesignHeight="450"
+      d:DesignWidth="800"
+      Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+      ScrollViewer.CanContentScroll="False"
+      mc:Ignorable="d">
+    <Page.Resources>
+        <cv:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+        <sys:Boolean x:Key="BoolTrue">
+            True
+        </sys:Boolean>
+        <sys:Boolean x:Key="BoolFalse">
+            False
+        </sys:Boolean>
+        <Style x:Key="NoSelectionDataGridCell"
+               BasedOn="{StaticResource DefaultDataGridCellStyle}"
+               TargetType="{x:Type DataGridCell}">
+            <Setter Property="Background" Value="{x:Null}" />
+            <Setter Property="BorderBrush" Value="{x:Null}" />
+            <Setter Property="Foreground" Value="{Binding RelativeSource={RelativeSource Self}, Path=Foreground}" />
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="{x:Null}" />
+                    <Setter Property="BorderBrush" Value="{x:Null}" />
+                    <Setter Property="Foreground" Value="{Binding RelativeSource={RelativeSource Self}, Path=Foreground}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="NoSelectionDataGridRow"
+               BasedOn="{StaticResource DefaultDataGridRowStyle}"
+               TargetType="{x:Type DataGridRow}">
+            <Setter Property="Background" Value="{x:Null}" />
+            <Setter Property="BorderBrush" Value="{x:Null}" />
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="{x:Null}" />
+                    <Setter Property="BorderBrush" Value="{x:Null}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="DataGridColumnHeaderStyle"
+               BasedOn="{StaticResource DefaultDataGridColumnHeaderStyle}"
+               TargetType="DataGridColumnHeader">
+            <Setter Property="IsHitTestVisible" Value="False" />
+        </Style>
+    </Page.Resources>
+    <DockPanel>
+        <StackPanel Margin="0,15"
+                    DockPanel.Dock="Bottom"
+                    Orientation="Horizontal">
+            <ui:Button Margin="0,0,8,0"
+                       Appearance="Primary"
+                       Command="{Binding ViewModel.SaveCommand}"
+                       CommandParameter="{StaticResource BoolFalse}">
+                <control:IconLabel Label="Save"
+                                   Symbol="Save16" />
+            </ui:Button>
+            <ui:Button Command="{Binding ViewModel.SaveCommand}"
+                       CommandParameter="{StaticResource BoolTrue}">
+                <control:IconLabel Label="Undo"
+                                   Symbol="ArrowUndo16" />
+            </ui:Button>
+        </StackPanel>
+        <Grid Grid.IsSharedSizeScope="True">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            <Grid MaxWidth="600"
+                  Margin="0,0,0,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition MinWidth="80"
+                                      SharedSizeGroup="AppId" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*"
+                                      SharedSizeGroup="AppTicket" />
+                    <ColumnDefinition Width="Auto"
+                                      SharedSizeGroup="ETicket" />
+                    <ColumnDefinition Width="Auto"
+                                      SharedSizeGroup="Button" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0"
+                           VerticalAlignment="Center"
+                           FontWeight="Medium"
+                           Text="AppId"
+                           TextAlignment="Center" />
+                <TextBlock Grid.Column="1"
+                           Margin="8,0,0,0"
+                           VerticalAlignment="Center"
+                           FontWeight="Medium"
+                           Text="Steam ID Owner" />
+                <TextBlock Grid.Column="2"
+                           Margin="16,0"
+                           VerticalAlignment="Center"
+                           FontWeight="Medium"
+                           Text="AppTicket"
+                           TextAlignment="Center" />
+                <TextBlock Grid.Column="3"
+                           Margin="16,0"
+                           VerticalAlignment="Center"
+                           FontWeight="Medium"
+                           Text="ETicket"
+                           TextAlignment="Center" />
+                <ui:Button Grid.Column="4"
+                           Margin="8,0,0,0"
+                           HorizontalAlignment="Stretch"
+                           Command="{Binding ViewModel.AddTicketCommand}"
+                           ToolTip="Extract Ticket">
+                    <control:IconLabel Label="Ticket"
+                                       Symbol="AddSquare24" />
+                </ui:Button>
+            </Grid>
+            <ui:VirtualizingItemsControl Grid.Row="1"
+                                         ItemsSource="{Binding ViewModel.Tickets,
+                                                               Mode=OneWay}"
+                                         VirtualizingPanel.ScrollUnit="Pixel"
+                                         VirtualizingPanel.VirtualizationMode="Recycling">
+                <ui:VirtualizingItemsControl.Template>
+                    <ControlTemplate TargetType="ui:VirtualizingItemsControl">
+                        <ui:DynamicScrollViewer Grid.Row="1"
+                                                Margin="-42,0,-42,0"
+                                                Padding="42,0,42,0"
+                                                CanContentScroll="True"
+                                                Timeout="1">
+                            <ItemsPresenter />
+                        </ui:DynamicScrollViewer>
+                    </ControlTemplate>
+                </ui:VirtualizingItemsControl.Template>
+                <ui:VirtualizingItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <VirtualizingStackPanel IsItemsHost="True" />
+                    </ItemsPanelTemplate>
+                </ui:VirtualizingItemsControl.ItemsPanel>
+                <ui:VirtualizingItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Grid MaxWidth="600"
+                              Margin="0,0,0,4"
+                              Visibility="{Binding IsVisible,
+                                                   Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition SharedSizeGroup="AppId" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto"
+                                                  SharedSizeGroup="AppTicket" />
+                                <ColumnDefinition Width="Auto"
+                                                  SharedSizeGroup="ETicket" />
+                                <ColumnDefinition Width="Auto"
+                                                  SharedSizeGroup="Button" />
+                            </Grid.ColumnDefinitions>
+                            <ui:TextBlock VerticalAlignment="Center"
+                                          Text="{Binding AppId}"
+                                          TextAlignment="Center" />
+                            <ui:TextBlock Grid.Column="1"
+                                          Margin="8,0,0,0"
+                                          VerticalAlignment="Center"
+                                          Text="{Binding OwnerID}"
+                                          TextTrimming="CharacterEllipsis" />
+                            <ui:SymbolIcon Grid.Column="2"
+                                           Margin="16,0"
+                                           FontSize="24">
+                                <ui:SymbolIcon.Style>
+                                    <Style TargetType="ui:SymbolIcon">
+                                        <Setter Property="Symbol" Value="CheckmarkCircle24" />
+                                        <Setter Property="Foreground" Value="{StaticResource PaletteGreenBrush}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding AppTicketBytes,
+                                                                           UpdateSourceTrigger=PropertyChanged}"
+                                                         Value="{x:Null}">
+                                                <Setter Property="Symbol" Value="DismissCircle24" />
+                                                <Setter Property="Foreground" Value="{StaticResource PaletteRedBrush}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ui:SymbolIcon.Style>
+                            </ui:SymbolIcon>
+                            <ui:SymbolIcon Grid.Column="3"
+                                           Margin="16,0"
+                                           FontSize="24">
+                                <ui:SymbolIcon.Style>
+                                    <Style TargetType="ui:SymbolIcon">
+                                        <Setter Property="Symbol" Value="CheckmarkLock24" />
+                                        <Setter Property="Foreground" Value="{StaticResource PaletteGreenBrush}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding EncryptedTicketBytes,
+                                                                           UpdateSourceTrigger=PropertyChanged}"
+                                                         Value="{x:Null}">
+                                                <Setter Property="Symbol" Value="DismissCircle24" />
+                                                <Setter Property="Foreground" Value="{StaticResource PaletteRedBrush}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ui:SymbolIcon.Style>
+                            </ui:SymbolIcon>
+                            <DockPanel Grid.Column="4"
+                                       Margin="8,0,0,0"
+                                       HorizontalAlignment="Center">
+                                <ui:Button Margin="0,0,8,0"
+                                           Command="{Binding DataContext.ViewModel.SaveTicketCommand,
+                                                             RelativeSource={RelativeSource AncestorType=Page}}"
+                                           CommandParameter="{Binding}"
+                                           Icon="{ui:SymbolIcon Symbol=DocumentArrowDown16,
+                                                                FontSize=16}"
+                                           ToolTip="Save Ticket as file" />
+                                <ui:Button Appearance="Danger"
+                                           Command="{Binding DataContext.ViewModel.DeleteTicketCommand,
+                                                             RelativeSource={RelativeSource AncestorType=Page}}"
+                                           CommandParameter="{Binding}"
+                                           Icon="{ui:SymbolIcon Symbol=Delete24,
+                                                                FontSize=16}" />
+                            </DockPanel>
+                        </Grid>
+                    </DataTemplate>
+                </ui:VirtualizingItemsControl.ItemTemplate>
+            </ui:VirtualizingItemsControl>
+        </Grid>
+    </DockPanel>
+</Page>

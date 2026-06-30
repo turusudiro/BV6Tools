@@ -1,0 +1,560 @@
+﻿<Page x:Class="BV6Tools.Views.Pages.SettingsPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:control="clr-namespace:BV6Tools.Views.Controls"
+      xmlns:cv="clr-namespace:BV6Tools.Converters"
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+      xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
+      xmlns:local="clr-namespace:BV6Tools.Views.Pages"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      xmlns:mode="clr-namespace:BV6Tools.Services.Injector"
+      xmlns:model="clr-namespace:BV6Tools.Models"
+      xmlns:sys="clr-namespace:System;assembly=mscorlib"
+      xmlns:theme="clr-namespace:Wpf.Ui.Appearance;assembly=Wpf.Ui"
+      xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+      xmlns:vmShared="clr-namespace:BV6Tools.ViewModels.Shared"
+      Title="SettingsPage"
+      d:DataContext="{d:DesignInstance local:SettingsPage,
+                                       IsDesignTimeCreatable=False}"
+      d:DesignHeight="450"
+      d:DesignWidth="800"
+      ui:Design.Background="{DynamicResource ApplicationBackgroundBrush}"
+      ui:Design.Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+      Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+      ScrollViewer.CanContentScroll="False"
+      mc:Ignorable="d">
+    <Page.Resources>
+        <cv:EnumToBooleanConverter x:Key="EnumToBooleanConverter" />
+        <cv:EnumConverter x:Key="EnumConverter" />
+        <ObjectDataProvider x:Key="InjectModeProvider"
+                            MethodName="GetValues"
+                            ObjectType="{x:Type sys:Enum}">
+            <ObjectDataProvider.MethodParameters>
+                <x:Type TypeName="mode:ProcessMode" />
+            </ObjectDataProvider.MethodParameters>
+        </ObjectDataProvider>
+    </Page.Resources>
+    <DockPanel>
+        <StackPanel Margin="0,15"
+                    DockPanel.Dock="Bottom"
+                    Orientation="Horizontal">
+            <ui:Button Margin="0,0,8,0"
+                       Appearance="Primary"
+                       Command="{Binding ViewModel.SaveCommand}">
+                <control:IconLabel Label="Save"
+                                   Symbol="Save16" />
+            </ui:Button>
+            <ui:Button Command="{Binding ViewModel.UndoCommand}">
+                <control:IconLabel Label="Undo"
+                                   Symbol="ArrowUndo16" />
+            </ui:Button>
+        </StackPanel>
+        <ui:DynamicScrollViewer Margin="-42,0,-42,0"
+                                Padding="42,0,42,0"
+                                Timeout="1">
+            <StackPanel>
+                <StackPanel>
+                    <ui:TextBlock FontSize="20"
+                                  FontWeight="Medium"
+                                  Text="Inject" />
+                    <ui:Card Margin="0,8,0,0">
+                        <StackPanel>
+                            <control:IconLabel Label="Mode"
+                                               LabelFontSize="16"
+                                               LabelFontWeight="Medium"
+                                               Symbol="Syringe24"
+                                               SymbolFontSize="24" />
+                            <ComboBox Margin="0,12,0,0"
+                                      ItemsSource="{Binding Source={StaticResource InjectModeProvider}}"
+                                      SelectedItem="{Binding ViewModel.Settings.Mode}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <ui:TextBlock Text="{Binding Converter={StaticResource EnumConverter}}" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <control:IconLabel Margin="0,12,0,0"
+                                               Label="Profile"
+                                               LabelFontSize="16"
+                                               LabelFontWeight="Medium"
+                                               Symbol="People24"
+                                               SymbolFontSize="24" />
+                            <Grid Margin="0,12,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <ComboBox x:Name="ProfileComboBox"
+                                          Grid.Column="0"
+                                          Margin="0,0,8,0"
+                                          SelectedItem="{Binding ViewModel.SelectedProfile}">
+                                    <ComboBox.Resources>
+                                        <CollectionViewSource x:Key="Profiles"
+                                                              Source="{Binding ViewModel.Profiles}" />
+                                    </ComboBox.Resources>
+                                    <ComboBox.ItemsSource>
+                                        <CompositeCollection>
+                                            <CollectionContainer Collection="{Binding Source={StaticResource Profiles}}" />
+                                        </CompositeCollection>
+                                    </ComboBox.ItemsSource>
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate DataType="vmShared:ProfileDbViewModel">
+                                            <ui:TextBlock Text="{Binding ProfileName}" />
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                                <ui:Button Grid.Column="1"
+                                           Margin="0,0,8,0"
+                                           VerticalAlignment="Stretch"
+                                           Command="{Binding ViewModel.AddProfileCommand}"
+                                           FontSize="16"
+                                           Icon="{ui:SymbolIcon Add24}"
+                                           ToolTip="Add Profile" />
+                                <ui:Button Grid.Column="2"
+                                           Margin="0,0,8,0"
+                                           VerticalAlignment="Stretch"
+                                           Command="{Binding ViewModel.RenameProfileCommand}"
+                                           CommandParameter="{Binding ElementName=ProfileComboBox,
+                                                                      Path=SelectedItem}"
+                                           FontSize="16"
+                                           Icon="{ui:SymbolIcon Rename24}"
+                                           ToolTip="Rename Profile" />
+                                <ui:Button Grid.Column="3"
+                                           Margin="0,0,0,0"
+                                           VerticalAlignment="Stretch"
+                                           Command="{Binding ViewModel.RemoveProfileCommand}"
+                                           CommandParameter="{Binding ElementName=ProfileComboBox,
+                                                                      Path=SelectedItem}"
+                                           FontSize="16"
+                                           Icon="{ui:SymbolIcon Delete24}"
+                                           ToolTip="Remove Profile" />
+                            </Grid>
+                            <Grid Margin="0,12,0,0">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition />
+                                    <RowDefinition />
+                                </Grid.RowDefinitions>
+                                <control:IconLabel Label="Steam Path"
+                                                   LabelFontSize="16"
+                                                   LabelFontWeight="Medium"
+                                                   Symbol="Folder24"
+                                                   SymbolFontSize="24" />
+                                <DockPanel Grid.Row="1"
+                                           Margin="0,12,0,0">
+                                    <ui:Button VerticalAlignment="Stretch"
+                                               Command="{Binding ViewModel.BrowseSteamPathCommand}"
+                                               DockPanel.Dock="Right">
+                                        <control:IconLabel Label="Browse"
+                                                           Symbol="FolderOpen16" />
+                                    </ui:Button>
+                                    <ui:TextBox Margin="0,0,8,0"
+                                                Text="{Binding ViewModel.Settings.SteamPath,
+                                                               UpdateSourceTrigger=PropertyChanged}" />
+                                </DockPanel>
+                            </Grid>
+                            <ui:DropDownButton Margin="0,12,0,0"
+                                               HorizontalAlignment="Right"
+                                               Content="Clean Steam Injection Files">
+                                <ui:DropDownButton.Flyout>
+                                    <ContextMenu>
+                                        <ui:MenuItem Command="{Binding ViewModel.CleanSteamInjectionFilesCommand}"
+                                                     CommandParameter="GL"
+                                                     Header="GreenLuma" />
+                                        <ui:MenuItem Command="{Binding ViewModel.CleanSteamInjectionFilesCommand}"
+                                                     CommandParameter="ST"
+                                                     Header="SteamTools" />
+                                        <ui:MenuItem Command="{Binding ViewModel.CleanSteamInjectionFilesCommand}"
+                                                     CommandParameter="OpenSteamTool"
+                                                     Header="OpenSteamTool" />
+                                        <ui:MenuItem Command="{Binding ViewModel.CleanSteamInjectionFilesCommand}"
+                                                     Header="All Injections" />
+                                    </ContextMenu>
+                                </ui:DropDownButton.Flyout>
+                            </ui:DropDownButton>
+                        </StackPanel>
+                    </ui:Card>
+                </StackPanel>
+                <StackPanel Margin="0,12,0,0">
+                    <ui:TextBlock VerticalAlignment="Center"
+                                  FontSize="20"
+                                  FontWeight="Medium"
+                                  Text="GreenLuma" />
+                    <ui:Card Margin="0,8,0,0">
+                        <StackPanel>
+                            <ui:Button Command="{Binding ViewModel.DownloadGreenLumaCommand}"
+                                       DockPanel.Dock="Right">
+                                <control:IconLabel Label="Download GreenLuma"
+                                                   Symbol="ArrowDownload24" />
+                            </ui:Button>
+                            <ui:Card Margin="0,12"
+                                     AllowDrop="True">
+                                <i:Interaction.Triggers>
+                                    <i:EventTrigger EventName="DragEnter">
+                                        <i:ChangePropertyAction PropertyName="Tag"
+                                                                Value="IsOver" />
+                                    </i:EventTrigger>
+                                    <i:EventTrigger EventName="DragLeave">
+                                        <i:ChangePropertyAction PropertyName="Tag"
+                                                                Value="" />
+                                    </i:EventTrigger>
+                                    <i:EventTrigger EventName="Drop">
+                                        <i:ChangePropertyAction PropertyName="Tag"
+                                                                Value="" />
+                                        <i:InvokeCommandAction Command="{Binding ViewModel.DropGLCommand}"
+                                                               PassEventArgsToCommand="True" />
+                                    </i:EventTrigger>
+                                </i:Interaction.Triggers>
+                                <ui:Card.Style>
+                                    <Style BasedOn="{StaticResource {x:Type ui:Card}}"
+                                           TargetType="ui:Card">
+                                        <Style.Triggers>
+                                            <Trigger Property="Tag" Value="IsOver">
+                                                <Setter Property="Opacity" Value="0.7" />
+                                            </Trigger>
+                                            <DataTrigger Binding="{Binding ViewModel.GlExists}"
+                                                         Value="False">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ui:Card.Style>
+                                <StackPanel HorizontalAlignment="Center"
+                                            VerticalAlignment="Center">
+                                    <control:IconLabel Label="Drag GreenLuma zip file here"
+                                                       Orientation="Vertical"
+                                                       Symbol="Archive24"
+                                                       SymbolFontSize="48" />
+                                    <ui:TextBlock Margin="0,4,0,0"
+                                                  HorizontalAlignment="Center"
+                                                  FontWeight="Medium">
+                                        <Run Text="Status: " />
+                                        <Run>
+                                            <Run.Style>
+                                                <Style TargetType="Run">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding ViewModel.GlExists}"
+                                                                     Value="True">
+                                                            <Setter Property="Text" Value="Ready" />
+                                                            <Setter Property="Foreground" Value="{StaticResource PaletteGreenBrush}" />
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding ViewModel.GlExists}"
+                                                                     Value="False">
+                                                            <Setter Property="Text" Value="Missing" />
+                                                            <Setter Property="Foreground" Value="{StaticResource PaletteRedBrush}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Run.Style>
+                                        </Run>
+                                    </ui:TextBlock>
+                                </StackPanel>
+                            </ui:Card>
+                        </StackPanel>
+                    </ui:Card>
+                </StackPanel>
+                <StackPanel Margin="0,12,0,0">
+                    <ui:TextBlock FontSize="20"
+                                  FontWeight="Medium"
+                                  Text="SteamTools" />
+                    <ui:Card Margin="0,8,0,0">
+                        <StackPanel>
+                            <ui:Button Command="{Binding ViewModel.DownloadSteamToolsCommand}">
+                                <control:IconLabel Label="Download SteamTools"
+                                                   Symbol="ArrowDownload24" />
+                            </ui:Button>
+                            <ui:Card Margin="0,12"
+                                     AllowDrop="True">
+                                <i:Interaction.Triggers>
+                                    <i:EventTrigger EventName="DragEnter">
+                                        <i:ChangePropertyAction PropertyName="Tag"
+                                                                Value="IsOver" />
+                                    </i:EventTrigger>
+                                    <i:EventTrigger EventName="DragLeave">
+                                        <i:ChangePropertyAction PropertyName="Tag"
+                                                                Value="" />
+                                    </i:EventTrigger>
+                                    <i:EventTrigger EventName="Drop">
+                                        <i:ChangePropertyAction PropertyName="Tag"
+                                                                Value="" />
+                                        <i:InvokeCommandAction Command="{Binding ViewModel.DropSteamToolsCommand}"
+                                                               PassEventArgsToCommand="True" />
+                                    </i:EventTrigger>
+                                </i:Interaction.Triggers>
+                                <ui:Card.Style>
+                                    <Style BasedOn="{StaticResource {x:Type ui:Card}}"
+                                           TargetType="ui:Card">
+                                        <Style.Triggers>
+                                            <Trigger Property="Tag" Value="IsOver">
+                                                <Setter Property="Opacity" Value="0.7" />
+                                            </Trigger>
+                                            <DataTrigger Binding="{Binding ViewModel.GlExists}"
+                                                         Value="False">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ui:Card.Style>
+                                <StackPanel HorizontalAlignment="Center"
+                                            VerticalAlignment="Center">
+                                    <control:IconLabel Label="Drag Core.dll / xinput1_4.dll / dwmapi.dll here"
+                                                       Orientation="Vertical"
+                                                       Symbol="Document24"
+                                                       SymbolFontSize="48" />
+                                    <ui:TextBlock Margin="0,4,0,0"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"
+                                                  FontSize="14"
+                                                  FontWeight="Medium">
+                                        <Run Text="Status:" />
+                                        <Run>
+                                            <Run.Style>
+                                                <Style TargetType="Run">
+                                                    <Setter Property="Foreground" Value="{StaticResource PaletteRedBrush}" />
+                                                    <Setter Property="Text" Value="Missing" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding ViewModel.SteamToolsExists}"
+                                                                     Value="True">
+                                                            <Setter Property="Text" Value="Ready" />
+                                                            <Setter Property="Foreground" Value="{StaticResource PaletteGreenBrush}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Run.Style>
+                                        </Run>
+                                    </ui:TextBlock>
+                                </StackPanel>
+                            </ui:Card>
+                        </StackPanel>
+                    </ui:Card>
+                </StackPanel>
+                <StackPanel Margin="0,12,0,0">
+                    <ui:TextBlock FontSize="20"
+                                  FontWeight="Medium"
+                                  Text="OpenSteamTool" />
+                    <ui:Card Margin="0,8,0,0">
+                        <StackPanel>
+                            <ui:Button Command="{Binding ViewModel.DownloadOpenSteamToolCommand}">
+                                <control:IconLabel Label="Download OpenSteamTool"
+                                                   Symbol="ArrowDownload24" />
+                            </ui:Button>
+                            <ui:Card Margin="0,12"
+                                     AllowDrop="True">
+                                <i:Interaction.Triggers>
+                                    <i:EventTrigger EventName="DragEnter">
+                                        <i:ChangePropertyAction PropertyName="Tag"
+                                                                Value="IsOver" />
+                                    </i:EventTrigger>
+                                    <i:EventTrigger EventName="DragLeave">
+                                        <i:ChangePropertyAction PropertyName="Tag"
+                                                                Value="" />
+                                    </i:EventTrigger>
+                                    <i:EventTrigger EventName="Drop">
+                                        <i:ChangePropertyAction PropertyName="Tag"
+                                                                Value="" />
+                                        <i:InvokeCommandAction Command="{Binding ViewModel.DropOpenSteamToolCommand}"
+                                                               PassEventArgsToCommand="True" />
+                                    </i:EventTrigger>
+                                </i:Interaction.Triggers>
+                                <ui:Card.Style>
+                                    <Style BasedOn="{StaticResource {x:Type ui:Card}}"
+                                           TargetType="ui:Card">
+                                        <Style.Triggers>
+                                            <Trigger Property="Tag" Value="IsOver">
+                                                <Setter Property="Opacity" Value="0.7" />
+                                            </Trigger>
+                                            <DataTrigger Binding="{Binding ViewModel.GlExists}"
+                                                         Value="False">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ui:Card.Style>
+                                <StackPanel HorizontalAlignment="Center"
+                                            VerticalAlignment="Center">
+                                    <control:IconLabel Label="Drag OpenSteamTool zip file here"
+                                                       Orientation="Vertical"
+                                                       Symbol="Document24"
+                                                       SymbolFontSize="48" />
+                                    <ui:TextBlock Margin="0,4,0,0"
+                                                  HorizontalAlignment="Center"
+                                                  FontSize="14"
+                                                  FontWeight="Medium">
+                                        <Run Text="Status:" />
+                                        <Run>
+                                            <Run.Style>
+                                                <Style TargetType="Run">
+                                                    <Setter Property="Text" Value="Missing" />
+                                                    <Setter Property="Foreground" Value="{StaticResource PaletteRedBrush}" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding ViewModel.OpenSteamToolExists}"
+                                                                     Value="True">
+                                                            <Setter Property="Text" Value="Ready" />
+                                                            <Setter Property="Foreground" Value="{StaticResource PaletteGreenBrush}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Run.Style>
+                                        </Run>
+                                    </ui:TextBlock>
+                                </StackPanel>
+                            </ui:Card>
+                        </StackPanel>
+                    </ui:Card>
+                </StackPanel>
+                <StackPanel Margin="0,8,0,0">
+                    <ui:TextBlock FontSize="20"
+                                  FontWeight="Medium"
+                                  Text="Appearance &amp; behavior" />
+                    <ui:Card Margin="0,8,0,0">
+                        <StackPanel>
+                            <control:IconLabel Margin="0,0,0,8"
+                                               Label="Startup behavior"
+                                               LabelFontSize="16"
+                                               LabelFontWeight="Medium"
+                                               Symbol="PersonRunning20"
+                                               SymbolFontSize="24" />
+                            <RadioButton Content="{Binding Source={x:Static model:StartupMode.None},
+                                                           Converter={StaticResource EnumConverter}}"
+                                         GroupName="startupSelect"
+                                         IsChecked="{Binding ViewModel.StartupMode,
+                                                             Converter={StaticResource EnumToBooleanConverter},
+                                                             ConverterParameter={x:Static model:StartupMode.None}}" />
+                            <RadioButton Content="{Binding Source={x:Static model:StartupMode.Minimized},
+                                                           Converter={StaticResource EnumConverter}}"
+                                         GroupName="startupSelect"
+                                         IsChecked="{Binding ViewModel.StartupMode,
+                                                             Converter={StaticResource EnumToBooleanConverter},
+                                                             ConverterParameter={x:Static model:StartupMode.Minimized}}"
+                                         ToolTip="Run BV6Tools minimized on windows startup." />
+                            <RadioButton Content="{Binding Source={x:Static model:StartupMode.AutoInject},
+                                                           Converter={StaticResource EnumConverter}}"
+                                         GroupName="startupSelect"
+                                         IsChecked="{Binding ViewModel.StartupMode,
+                                                             Converter={StaticResource EnumToBooleanConverter},
+                                                             ConverterParameter={x:Static model:StartupMode.AutoInject}}"
+                                         ToolTip="Run BV6Tools on windows startup and immediately inject steam." />
+                            <control:IconLabel Margin="0,12,0,8"
+                                               Label="Window"
+                                               LabelFontSize="16"
+                                               LabelFontWeight="Medium"
+                                               Symbol="WindowWrench24"
+                                               SymbolFontSize="24" />
+                            <CheckBox Padding="0"
+                                      Content="Minimize to tray"
+                                      IsChecked="{Binding ViewModel.Settings.MinimizeToTray}"
+                                      ToolTip="Hide to tray instead minimize." />
+                            <CheckBox Padding="0"
+                                      Content="Close to tray"
+                                      IsChecked="{Binding ViewModel.Settings.CloseToTray}"
+                                      ToolTip="Hide to tray instead exit." />
+                            <control:IconLabel Margin="0,12,0,8"
+                                               Label="On Inject "
+                                               LabelFontSize="16"
+                                               LabelFontWeight="Medium"
+                                               Symbol="Rocket24"
+                                               SymbolFontSize="24" />
+                            <RadioButton Content="{Binding Source={x:Static model:OnInject.None},
+                                                           Converter={StaticResource EnumConverter}}"
+                                         GroupName="onInjectSelect"
+                                         IsChecked="{Binding ViewModel.Settings.OnInject,
+                                                             Converter={StaticResource EnumToBooleanConverter},
+                                                             ConverterParameter={x:Static model:OnInject.None}}" />
+                            <RadioButton Content="{Binding Source={x:Static model:OnInject.Minimize},
+                                                           Converter={StaticResource EnumConverter}}"
+                                         GroupName="onInjectSelect"
+                                         IsChecked="{Binding ViewModel.Settings.OnInject,
+                                                             Converter={StaticResource EnumToBooleanConverter},
+                                                             ConverterParameter={x:Static model:OnInject.Minimize}}"
+                                         ToolTip="Minimize to tray on steam inject." />
+                            <RadioButton Content="{Binding Source={x:Static model:OnInject.Exit},
+                                                           Converter={StaticResource EnumConverter}}"
+                                         GroupName="onInjectSelect"
+                                         IsChecked="{Binding ViewModel.Settings.OnInject,
+                                                             Converter={StaticResource EnumToBooleanConverter},
+                                                             ConverterParameter={x:Static model:OnInject.Exit}}"
+                                         ToolTip="Exit on steam inject." />
+                            <control:IconLabel Margin="0,12,0,8"
+                                               Label="Theme"
+                                               LabelFontSize="16"
+                                               LabelFontWeight="Medium"
+                                               Symbol="Color24"
+                                               SymbolFontSize="24" />
+                            <RadioButton Margin="0,0,0,4"
+                                         Command="{Binding ViewModel.ChangeThemeCommand,
+                                                           Mode=OneWay}"
+                                         CommandParameter="theme_light"
+                                         Content="Light"
+                                         GroupName="themeSelect"
+                                         IsChecked="{Binding ViewModel.Settings.CurrentTheme,
+                                                             Converter={StaticResource EnumToBooleanConverter},
+                                                             ConverterParameter={x:Static theme:ApplicationTheme.Light},
+                                                             Mode=OneWay}" />
+                            <RadioButton Command="{Binding ViewModel.ChangeThemeCommand,
+                                                           Mode=OneWay}"
+                                         CommandParameter="theme_dark"
+                                         Content="Dark"
+                                         GroupName="themeSelect"
+                                         IsChecked="{Binding ViewModel.Settings.CurrentTheme,
+                                                             Converter={StaticResource EnumToBooleanConverter},
+                                                             ConverterParameter={x:Static theme:ApplicationTheme.Dark},
+                                                             Mode=OneWay}" />
+                        </StackPanel>
+                    </ui:Card>
+                </StackPanel>
+                <StackPanel Margin="0,8,0,0">
+                    <TextBlock FontSize="20"
+                               FontWeight="Medium"
+                               Text="Other" />
+                    <ui:Card Margin="0,8,0,0">
+                        <StackPanel>
+                            <control:IconLabel Margin="0,0,0,12"
+                                               Label="Cleanup Background Worker"
+                                               LabelFontSize="16"
+                                               LabelFontWeight="Medium"
+                                               Symbol="Shield24"
+                                               SymbolFontSize="24" />
+                            <ui:ToggleSwitch Margin="0,0,0,12"
+                                             IsChecked="{Binding ViewModel.Settings.DisableCleanup}"
+                                             ToolTip="Turn off automatic cleanup when Steam closes">
+                                <control:IconLabel Label="Disable Background Worker"
+                                                   Symbol="ShieldProhibited24" />
+                            </ui:ToggleSwitch>
+                            <ui:Button Command="{Binding ViewModel.StopWorkerCommand}"
+                                       ToolTip="Stop background worker process (if exists)">
+                                <control:IconLabel Label="Stop Background Worker"
+                                                   Symbol="ShieldDismiss24" />
+                            </ui:Button>
+                        </StackPanel>
+                    </ui:Card>
+                </StackPanel>
+                <StackPanel Margin="0,8,0,0">
+                    <TextBlock FontSize="20"
+                               FontWeight="Medium"
+                               Text="About" />
+                    <ui:Card Margin="0,8,0,0">
+                        <StackPanel>
+                            <ui:ImageIcon Width="64"
+                                          Margin="0,0,0,8"
+                                          Source="pack://application:,,,/Assets/bv6tools-icon-64.png" />
+                            <TextBlock HorizontalAlignment="Center"
+                                       Text="{Binding ViewModel.AppVersion,
+                                                      Mode=OneWay,
+                                                      StringFormat=Version: {0}}" />
+                        </StackPanel>
+                    </ui:Card>
+                    <control:IconLabel Margin="0,12,0,0"
+                                       Filled="True"
+                                       Foreground="{StaticResource PalettePinkBrush}"
+                                       Label="Made with love by TuruSudiro"
+                                       LabelFontSize="16"
+                                       LabelFontWeight="Medium"
+                                       Orientation="Vertical"
+                                       Symbol="Heart24"
+                                       SymbolFontSize="20" />
+                </StackPanel>
+            </StackPanel>
+        </ui:DynamicScrollViewer>
+    </DockPanel>
+</Page>

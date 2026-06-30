@@ -1,0 +1,121 @@
+﻿<ui:ContentDialog x:Class="BV6Tools.Views.Dialogs.EditDialog"
+                  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                  xmlns:behaviors="clr-namespace:BV6Tools.Behaviors"
+                  xmlns:cv="clr-namespace:BV6Tools.Converters"
+                  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                  xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
+                  xmlns:local="clr-namespace:BV6Tools.Views.Dialogs"
+                  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                  xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                  Title="{Binding ViewModel.Title}"
+                  d:DataContext="{d:DesignInstance local:EditDialog,
+                                                   IsDesignTimeCreatable=False}"
+                  ui:Design.Background="{DynamicResource ApplicationBackgroundBrush}"
+                  ui:Design.Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                  CloseButtonText="Cancel"
+                  DialogMargin="0,10"
+                  DialogMaxWidth="500"
+                  Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                  IsPrimaryButtonEnabled="{Binding ViewModel.IsSaveVisible}"
+                  PrimaryButtonText="Save"
+                  mc:Ignorable="d">
+    <ui:ContentDialog.Resources>
+        <ResourceDictionary>
+            <Style BasedOn="{StaticResource {x:Type ui:ContentDialog}}"
+                   TargetType="{x:Type local:EditDialog}" />
+            <cv:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+        </ResourceDictionary>
+    </ui:ContentDialog.Resources>
+    <StackPanel MinWidth="400">
+        <StackPanel>
+            <Label Content="Name" />
+            <ui:TextBox PlaceholderText="{Binding ViewModel.PlaceHolder}"
+                        Text="{Binding ViewModel.Name,
+                                       UpdateSourceTrigger=PropertyChanged}" />
+        </StackPanel>
+        <StackPanel Margin="0,7,0,0">
+            <Label Content="Appid" />
+            <ui:NumberBox MaxDecimalPlaces="0"
+                          Minimum="0"
+                          PlaceholderText="Appid"
+                          SpinButtonPlacementMode="Inline"
+                          Value="{Binding ViewModel.NumberBoxAppID,
+                                          UpdateSourceTrigger=PropertyChanged}">
+                <i:Interaction.Triggers>
+                    <i:EventTrigger EventName="TextChanged">
+                        <i:CallMethodAction MethodName="OnValueChangedNumberBox"
+                                            TargetObject="{Binding ViewModel}" />
+                    </i:EventTrigger>
+                </i:Interaction.Triggers>
+            </ui:NumberBox>
+        </StackPanel>
+        <StackPanel Margin="0,7,0,0"
+                    Visibility="{Binding ViewModel.ParentEdit,
+                                         Converter={StaticResource BooleanToVisibilityConverter}}">
+            <Label>
+                <ui:TextBlock TextTrimming="CharacterEllipsis">
+                    <ui:TextBlock.Text>
+                        <MultiBinding StringFormat="{}Parent: {0} - {1}">
+                            <Binding ElementName="SelectedGameComboBox"
+                                     FallbackValue="Unknown AppId"
+                                     Path="SelectedItem.AppId"
+                                     TargetNullValue="Unknown AppId" />
+                            <Binding ElementName="SelectedGameComboBox"
+                                     FallbackValue="Unknown App"
+                                     Path="SelectedItem.Name"
+                                     TargetNullValue="Unknown App" />
+                        </MultiBinding>
+                    </ui:TextBlock.Text>
+                </ui:TextBlock>
+            </Label>
+            <ComboBox x:Name="SelectedGameComboBox"
+                      Margin="0,7,0,0"
+                      IsEditable="True"
+                      ItemsSource="{Binding ViewModel.Games}"
+                      SelectedItem="{Binding ViewModel.SelectedGame}">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel MaxWidth="400"
+                                    HorizontalAlignment="Left"
+                                    VerticalAlignment="Center">
+                            <ui:TextBlock Margin="0,0,6,0"
+                                          VerticalAlignment="Center"
+                                          Text="{Binding Name}"
+                                          TextTrimming="CharacterEllipsis"
+                                          TextWrapping="NoWrap"
+                                          ToolTip="{Binding Name}">
+                                <ui:TextBlock.Style>
+                                    <Style TargetType="ui:TextBlock">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Name}"
+                                                         Value="{x:Null}">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ui:TextBlock.Style>
+                            </ui:TextBlock>
+                            <ui:TextBlock VerticalAlignment="Center"
+                                          FontSize="12">
+                                <ui:TextBlock.Style>
+                                    <Style TargetType="ui:TextBlock">
+                                        <Setter Property="Text" Value="{Binding AppId, StringFormat='({0})'}" />
+                                        <Setter Property="Appearance" Value="Tertiary" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Name}"
+                                                         Value="{x:Null}">
+                                                <Setter Property="Appearance" Value="Primary" />
+                                                <Setter Property="Text" Value="{Binding AppId}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ui:TextBlock.Style>
+                            </ui:TextBlock>
+                        </StackPanel>
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+        </StackPanel>
+    </StackPanel>
+</ui:ContentDialog>

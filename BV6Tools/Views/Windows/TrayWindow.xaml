@@ -1,0 +1,33 @@
+﻿<Window x:Class="BV6Tools.Views.Windows.TrayWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:local="clr-namespace:BV6Tools.Views.Windows"
+        xmlns:lua="clr-namespace:BV6Tools.ViewModels.Pages.Lua"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:tray="http://schemas.lepo.co/wpfui/2022/xaml/tray"
+        xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+        Width="0"
+        Height="0"
+        d:DataContext="{d:DesignInstance local:TrayWindow,
+                                         IsDesignTimeCreatable=False}"
+        AllowsTransparency="False"
+        Background="Transparent"
+        ShowInTaskbar="False"
+        Visibility="Hidden"
+        WindowStyle="None"
+        mc:Ignorable="d">
+    <tray:NotifyIcon x:Name="TrayIcon"
+                     FocusOnLeftClick="False"
+                     Icon="pack://application:,,,/Assets/bv6tools-tray-256.png"
+                     LeftClick="TrayIcon_LeftClick"
+                     MenuOnRightClick="True"
+                     RightClick="TrayIcon_RightClick"
+                     TooltipText="BV6Tools">
+        <tray:NotifyIcon.Menu>
+            <ContextMenu ItemsSource="{Binding TrayMenuItems,
+                                               Mode=OneWay}" />
+        </tray:NotifyIcon.Menu>
+    </tray:NotifyIcon>
+
+</Window>

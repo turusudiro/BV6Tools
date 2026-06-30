@@ -1,0 +1,15 @@
+{
+  "profiles": {
+    "BV6Tools": {
+      "commandName": "Project"
+    },
+    "--startsteam": {
+      "commandName": "Project",
+      "commandLineArgs": "--startsteam"
+    },
+    "--minimized": {
+      "commandName": "Project",
+      "commandLineArgs": "--minimized"
+    }
+  }
+}
