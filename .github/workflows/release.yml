@@ -1,0 +1,73 @@
+name: BV6Tools Release
+on:
+  push:
+    tags:
+      - '*'
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore Dependencies
+        run: dotnet restore BV6Tools/BV6Tools.csproj
+
+      - name: Publish WPF App
+        run: >
+          dotnet publish BV6Tools/BV6Tools.csproj
+          --configuration Release
+          --runtime win-x64
+          --framework net10.0-windows10.0.22621.0
+          -p:PublishSingleFile=true
+          -p:SelfContained=true
+          -o ./publish/BV6Tools
+
+      - name: Cleanup Unwanted Files
+        run: Get-ChildItem ./publish/BV6Tools -Include *.pdb, *.config, *.xml -Recurse | Remove-Item -Force -ErrorAction SilentlyContinue
+
+      - name: Create Release Archive
+        run: |
+          Compress-Archive -Path "./publish/BV6Tools" -DestinationPath ./publish/BV6Tools-Release.zip -Force
+          Remove-Item "./publish/BV6Tools" -Recurse -Force
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: BV6Tools-Release
+          path: ./publish/BV6Tools-Release.zip
+          retention-days: 7
+
+      - name: Generate Changelog
+        id: changelog
+        uses: TriPSs/conventional-changelog-action@v5
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          output-file: "false"
+          skip-version-file: true
+          skip-commit: true
+          skip-tag: true
+          skip-on-empty: false
+          skip-git-pull: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ./publish/BV6Tools-Release.zip
+          body: |
+            ## Installation
+            1. Download `BV6Tools-Release.zip`
+            2. Extract anywhere
+            3. Run `BV6Tools.exe`
+
+            ## What's Changed
+            ${{ steps.changelog.outputs.clean_changelog }}
