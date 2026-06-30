@@ -1,0 +1,26 @@
+name: CI
+on:
+  pull_request:
+    branches: [ master ]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore Dependencies
+        run: dotnet restore BV6Tools/BV6Tools.csproj
+
+      - name: Build
+        run: dotnet build BV6Tools/BV6Tools.csproj --configuration Release
