@@ -2,11 +2,14 @@
 // Direct C# translation of:
 // https://github.com/OpenSteam001/OpenSteamTool/tree/main/tools/extract_tickets
 // Uses self-process spawning to avoid Steam "playing" status in host process.
+// Pipe messages are length-prefixed (4-byte LE int32 + UTF-8 JSON body) to
+// prevent framing corruption when progress callbacks fire back-to-back.
 
 using System.Diagnostics;
 using System.IO;
 using System.IO.Pipes;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Text.Json;
 
 namespace SteamCommon
@@ -20,7 +23,10 @@ namespace SteamCommon
 
     public static partial class SteamTicketExtractor
     {
-        // ── Host side: spawns self as worker, communicates via named pipe ─
+        // ── Host side ────────────────────────────────────────────────────
+        // Spawns itself as a short-lived worker process so steamclient64.dll
+        // loads and unloads in that child — keeps the host from showing as
+        // "playing" in Steam.
         public static async Task<TicketBundle> ExtractTicketsAsync(
             uint appId,
             IProgress<string>? progress = null,
@@ -34,7 +40,6 @@ namespace SteamCommon
                 transmissionMode: PipeTransmissionMode.Byte,
                 options: PipeOptions.Asynchronous);
 
-            // Spawn ourselves as worker process
             var psi = new ProcessStartInfo
             {
                 FileName = Environment.ProcessPath!,
@@ -46,24 +51,21 @@ namespace SteamCommon
             using var proc = Process.Start(psi)
                 ?? throw new Exception("Failed to start worker process.");
 
-            // If child crashes before connecting, unblock WaitForConnectionAsync
+            // If the child crashes before connecting, unblock WaitForConnectionAsync
             proc.EnableRaisingEvents = true;
             proc.Exited += (_, _) => { try { pipeServer.Dispose(); } catch { } };
 
             await pipeServer.WaitForConnectionAsync(token);
 
-            using var reader = new StreamReader(pipeServer);
             TicketBundleDto? result = null;
             string? error = null;
 
             while (true)
             {
                 token.ThrowIfCancellationRequested();
-                string? line = await reader.ReadLineAsync(token);
-                if (line == null) break;
 
-                var msg = JsonSerializer.Deserialize<PipeMessage>(line);
-                if (msg == null) continue;
+                var msg = await ReadMessageAsync(pipeServer, token);
+                if (msg == null) break;
 
                 switch (msg.Type)
                 {
@@ -86,8 +88,9 @@ namespace SteamCommon
             };
         }
 
-        // ── Worker side: called from App.xaml.cs OnStartup ───────────────
-        // Usage in App.xaml.cs OnStartup (before mutex check):
+        // ── Worker side ───────────────────────────────────────────────────
+        // Called from App.xaml.cs OnStartup before the mutex/single-instance check:
+        //
         //   if (e.Args.Length > 0 && e.Args[0] == "--extract-ticket")
         //   {
         //       var thread = new Thread(() => SteamTicketExtractor.RunWorker(e.Args));
@@ -105,10 +108,9 @@ namespace SteamCommon
 
             using var pipe = new NamedPipeClientStream(".", pipeName, PipeDirection.Out);
             pipe.Connect(5000);
-            using var writer = new StreamWriter(pipe) { AutoFlush = true };
 
             void Send(string type, string? data = null) =>
-                writer.WriteLine(JsonSerializer.Serialize(new PipeMessage(type, data)));
+                WriteMessage(pipe, new PipeMessage(type, data));
 
             try
             {
@@ -127,10 +129,54 @@ namespace SteamCommon
             }
         }
 
-        // ── Internal pipe message ─────────────────────────────────────────
+        // ── Pipe framing ──────────────────────────────────────────────────
+        // Length-prefix: 4-byte little-endian int32 followed by UTF-8 JSON.
+        // Prevents framing corruption when multiple sends happen back-to-back.
+
+        private static readonly object _writeLock = new();
+
+        private static void WriteMessage(PipeStream pipe, PipeMessage msg)
+        {
+            var json = JsonSerializer.Serialize(msg);
+            var bytes = Encoding.UTF8.GetBytes(json);
+            var len = BitConverter.GetBytes(bytes.Length);
+
+            lock (_writeLock)
+            {
+                pipe.Write(len, 0, 4);
+                pipe.Write(bytes, 0, bytes.Length);
+                pipe.Flush();
+            }
+        }
+
+        private static async Task<PipeMessage?> ReadMessageAsync(PipeStream pipe, CancellationToken token)
+        {
+            var lenBuf = new byte[4];
+            if (!await ReadExactAsync(pipe, lenBuf, token)) return null;
+
+            int length = BitConverter.ToInt32(lenBuf, 0);
+            if (length <= 0 || length > 50_000_000) return null;
+
+            var buf = new byte[length];
+            if (!await ReadExactAsync(pipe, buf, token)) return null;
+
+            return JsonSerializer.Deserialize<PipeMessage>(Encoding.UTF8.GetString(buf));
+        }
+
+        private static async Task<bool> ReadExactAsync(PipeStream pipe, byte[] buffer, CancellationToken token)
+        {
+            int read = 0;
+            while (read < buffer.Length)
+            {
+                int n = await pipe.ReadAsync(buffer.AsMemory(read, buffer.Length - read), token);
+                if (n == 0) return false;
+                read += n;
+            }
+            return true;
+        }
+
         private record PipeMessage(string Type, string? Data = null);
 
-        // ── Internal DTO for pipe serialization ───────────────────────────
         private class TicketBundleDto
         {
             public ulong SteamID { get; set; }
@@ -139,19 +185,20 @@ namespace SteamCommon
         }
     }
 
-    // ── Native Steam extraction (direct steamclient64.dll interop) ────────
-    // Based on https://github.com/OpenSteam001/OpenSteamTool/tree/main/tools/extract_tickets
+    // ── Native Steam extraction ───────────────────────────────────────────
+    // Direct port of https://github.com/OpenSteam001/OpenSteamTool/tree/main/tools/extract_tickets
+    // Loads steamclient64.dll from the Steam install path (found via registry),
+    // calls through its vtable to extract both ticket types, then frees the DLL.
     internal static unsafe partial class NativeSteam
     {
-        // ── steam.h constants ─────────────────────────────────────────────
+        // Interface version strings — must match what steamclient64.dll exports
         private const string kSteamClientInterfaceVersion = "SteamClient023";
         private const string kSteamUserInterfaceVersion = "SteamUser023";
         private const string kSteamUtilsInterfaceVersion = "SteamUtils010";
         private const string kSteamAppTicketInterfaceVersion = "STEAMAPPTICKET_INTERFACE_VERSION001";
         private const int k_EResultOK = 1;
-        private const int kEncryptedAppTicketCallback = 100 + 54;
+        private const int kEncryptedAppTicketCallback = 100 + 54; // k_iSteamUserCallbacks + 54
 
-        // ── Kernel32 ──────────────────────────────────────────────────────
         [LibraryImport("kernel32.dll", EntryPoint = "LoadLibraryExA", StringMarshalling = StringMarshalling.Utf8)]
         private static partial nint LoadLibraryExA(string lpFileName, nint hFile, uint dwFlags);
 
@@ -178,11 +225,11 @@ namespace SteamCommon
 
         private const uint LOAD_WITH_ALTERED_SEARCH_PATH = 0x00000008;
 
-        // ── EncryptedAppTicketResponse_t ──────────────────────────────────
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         private struct EncryptedAppTicketResponse_t { public int m_eResult; }
 
-        // ── vtable delegates (Cdecl = x64 calling convention) ────────────
+        // All delegates use Cdecl — on x64 Windows, __thiscall == __fastcall,
+        // so "this" is just the first argument in RCX, same as Cdecl.
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int CreateSteamPipeFn(nint self);
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate bool BReleaseSteamPipeFn(nint self, int hSteamPipe);
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int ConnectToGlobalUserFn(nint self, int hSteamPipe);
@@ -197,29 +244,30 @@ namespace SteamCommon
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate uint GetAppOwnershipTicketDataFn(nint self, uint nAppID, void* pvBuffer, uint cbBufferLength, uint* piAppId, uint* piSteamId, uint* piSignature, uint* pcbSignature);
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate nint CreateInterfaceFn([MarshalAs(UnmanagedType.LPStr)] string pName, int* pReturnCode);
 
-        // ── ISteamClient vtable indices ───────────────────────────────────
-        //  0: CreateSteamPipe        5: GetISteamUser       9: GetISteamUtils
-        //  1: BReleaseSteamPipe      6: GetISteamGameServer 10: GetISteamMatchmaking
-        //  2: ConnectToGlobalUser    7: SetLocalIPBinding   11: GetISteamMatchmakingServers
-        //  3: CreateLocalUser        8: GetISteamFriends    12: GetISteamGenericInterface
+        // ISteamClient vtable (steam.h declaration order)
+        //  0: CreateSteamPipe        5: GetISteamUser         9: GetISteamUtils
+        //  1: BReleaseSteamPipe      6: GetISteamGameServer  10: GetISteamMatchmaking
+        //  2: ConnectToGlobalUser    7: SetLocalIPBinding    11: GetISteamMatchmakingServers
+        //  3: CreateLocalUser        8: GetISteamFriends     12: GetISteamGenericInterface
         //  4: ReleaseUser
 
-        // ── ISteamUser vtable indices ─────────────────────────────────────
-        //  0: GetHSteamUser          8: StopVoiceRecording  16: EndAuthSession
-        //  1: BLoggedOn              9: GetAvailableVoice   17: CancelAuthTicket
-        //  2: GetSteamID*           10: GetVoice            18: UserHasLicenseForApp
-        //  3: InitiateGameConn_DEP  11: DecompressVoice     19: BIsBehindNAT
+        // ISteamUser vtable (steam.h declaration order)
+        //  0: GetHSteamUser         8: StopVoiceRecording   16: EndAuthSession
+        //  1: BLoggedOn             9: GetAvailableVoice    17: CancelAuthTicket
+        //  2: GetSteamID*          10: GetVoice             18: UserHasLicenseForApp
+        //  3: InitiateGameConn_DEP 11: DecompressVoice      19: BIsBehindNAT
         //  4: TerminateGameConn_DEP 12: GetVoiceOptimalRate 20: AdvertiseGame
-        //  5: TrackAppUsageEvent    13: GetAuthSessionTicket 21: RequestEncryptedAppTicket
-        //  6: GetUserDataFolder     14: GetAuthTicketForWebApi 22: GetEncryptedAppTicket
-        //  7: StartVoiceRecording   15: BeginAuthSession
-        // *GetSteamID uses hidden-pointer return on x64, called via delegate* unmanaged
+        //  5: TrackAppUsageEvent   13: GetAuthSessionTicket 21: RequestEncryptedAppTicket
+        //  6: GetUserDataFolder    14: GetAuthTicketForWebApi 22: GetEncryptedAppTicket
+        //  7: StartVoiceRecording  15: BeginAuthSession
+        // *GetSteamID: CSteamID is a struct — MSVC inserts a hidden output pointer
+        //  on x64, so call via `delegate* unmanaged[Cdecl]<nint, ulong*, void>`
 
-        // ── ISteamUtils vtable indices ────────────────────────────────────
-        //  0-10: (misc)   11: IsAPICallCompleted
+        // ISteamUtils vtable (steam.h declaration order)
+        //  0-10: misc   11: IsAPICallCompleted
         //  12: GetAPICallFailureReason   13: GetAPICallResult
 
-        // ── ISteamAppTicket vtable indices ────────────────────────────────
+        // ISteamAppTicket vtable
         //  0: GetAppOwnershipTicketData
 
         private static nint VFunc(nint iface, int index)
@@ -232,7 +280,6 @@ namespace SteamCommon
             Microsoft.Win32.Registry.GetValue(
                 @"HKEY_CURRENT_USER\Software\Valve\Steam", "SteamPath", null) as string;
 
-        // ── Public entry point (synchronous, runs in worker process) ──────
         public static TicketBundle ExtractTickets(uint appId, IProgress<string>? progress = null)
         {
             string? steamPath = FindSteamPath()
@@ -241,8 +288,12 @@ namespace SteamCommon
             steamPath = steamPath.Replace('/', '\\').TrimEnd('\\');
             string steamClientPath = Path.Combine(steamPath, "steamclient64.dll");
 
+            // Must be set before LoadLibraryEx — steamclient64.dll reads them on load
             SetEnvironmentVariableA("SteamAppId", appId.ToString());
             SetEnvironmentVariableA("SteamGameId", appId.ToString());
+
+            // steamclient64.dll depends on tier0_s64.dll / vstdlib_s64.dll from the
+            // Steam dir — add it to the search path so they resolve without PATH tricks
             SetDllDirectoryA(steamPath);
 
             progress?.Report($"Loading {steamClientPath}...");
@@ -295,7 +346,8 @@ namespace SteamCommon
                 if (steamUser == 0 || steamUtils == 0)
                     throw new Exception("GetISteamUser or GetISteamUtils returned null.");
 
-                // GetSteamID — CSteamID is a struct so MSVC uses hidden-pointer return on x64
+                // CSteamID is a struct in the SDK — MSVC inserts a hidden output pointer
+                // on x64 even though it fits in a register, so we can't use a normal delegate
                 progress?.Report("Getting SteamID...");
                 ulong steamId = 0;
                 ((delegate* unmanaged[Cdecl]<nint, ulong*, void>)VFunc(steamUser, 2))(steamUser, &steamId);
@@ -325,7 +377,8 @@ namespace SteamCommon
             uint appIdOff = 0, steamIdOff = 0, sigOff = 0, sigSize = 0;
             fixed (byte* pBuf = buffer)
             {
-                uint written = fn(appTicket, appId, pBuf, (uint)buffer.Length, &appIdOff, &steamIdOff, &sigOff, &sigSize);
+                uint written = fn(appTicket, appId, pBuf, (uint)buffer.Length,
+                    &appIdOff, &steamIdOff, &sigOff, &sigSize);
                 if (written == 0 || written > (uint)buffer.Length) return null;
                 return buffer[..(int)written];
             }
@@ -361,6 +414,7 @@ namespace SteamCommon
 
             if (!gotResult || failed || response.m_eResult != k_EResultOK) return null;
 
+            // Query exact size first, then fetch
             uint cbTicket = 0;
             fnGetTicket(steamUser, null, 0, &cbTicket);
             if (cbTicket == 0) return null;
