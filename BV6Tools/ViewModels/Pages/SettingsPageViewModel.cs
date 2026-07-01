@@ -455,6 +455,7 @@ public partial class SettingsPageViewModel : ObservableRecipient, INavigationAwa
         {
             var progressDialog = new ProgressDialog("OpenSteamTool", async (progress) =>
             {
+                Directory.CreateDirectory(AppPaths.OpenSteamToolPath);
                 using Stream stream = File.OpenRead(files[0]);
                 var options = new ReaderOptions
                 {
