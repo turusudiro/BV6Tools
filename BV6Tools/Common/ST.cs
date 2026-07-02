@@ -291,7 +291,7 @@ namespace STCommon
 
             foreach (var ticket in tickets)
             {
-                string setTicket = "setAppTicket";
+                string setTicket = "setAppticket";
                 if (ticket.TicketType == TicketType.Encrypted)
                 {
                     setTicket = "setETicket";
