@@ -22,9 +22,11 @@ namespace STCommon
     public static partial class ST
     {
         public static readonly Regex[] SteamToolsFiles = [DwmApiDLLRegex, SteamToolsCoreDLLRegex];
-        private const string CoreDLLUrl = "http://update.steamcdn.com/update";
+        private const string CoreDLLUrl = "http://update.tnkjmec.com/update";
+        private const string CoreDLLUrlFallback = "http://update.steamcdn.com/update";
 
-        private const string DwmapiUrl = "http://update.steamcdn.com/dwmapi";
+        private const string DwmapiUrl = "http://update.tnkjmec.com/dwmapi";
+        private const string DwmapiUrlFallback = "http://update.steamcdn.com/dwmapi";
 
         private const string OpenSteamToolApiUrl = "https://api.github.com/repos/OpenSteam001/OpenSteamTool/releases/latest";
 
@@ -145,25 +147,16 @@ namespace STCommon
 
         public static async Task DownloadSteamToolsAsync(string outputDir, CancellationToken token = default)
         {
-            using var responseCore = await httpClient.GetAsync(CoreDLLUrl, HttpCompletionOption.ResponseHeadersRead, token);
-            using var responseDwm = await httpClient.GetAsync(DwmapiUrl, HttpCompletionOption.ResponseHeadersRead, token);
-            responseCore.EnsureSuccessStatusCode();
-            responseDwm.EnsureSuccessStatusCode();
+            // Define your URL lists
+            var coreUrls = new[] { CoreDLLUrl, CoreDLLUrlFallback };
+            var dwmUrls = new[] { DwmapiUrl, DwmapiUrlFallback };
 
             Directory.CreateDirectory(outputDir);
 
-            string outCorePath = Path.Combine(outputDir, "xinput1_4.dll");
-            string outDwmPath = Path.Combine(outputDir, "dwmapi.dll");
-
-            await using var coreStream = await responseCore.Content.ReadAsStreamAsync(token);
-            await using var dwmStream = await responseDwm.Content.ReadAsStreamAsync(token);
-
-            await using var fileCoreStream = File.Create(outCorePath);
-            await using var fileDwmStream = File.Create(outDwmPath);
-
+            // Execute downloads in parallel with fallback logic
             await Task.WhenAll(
-                coreStream.CopyToAsync(fileCoreStream, token),
-                dwmStream.CopyToAsync(fileDwmStream, token)
+                DownloadWithFallbackAsync(coreUrls, Path.Combine(outputDir, "xinput1_4.dll"), token),
+                DownloadWithFallbackAsync(dwmUrls, Path.Combine(outputDir, "dwmapi.dll"), token)
             );
         }
 
@@ -420,6 +413,26 @@ namespace STCommon
 
             var processInfo = new ProcessStartInfo { FileName = steamExePath, WorkingDirectory = steamPath, Arguments = args };
             return Process.Start(processInfo)?.Id ?? throw new InvalidOperationException("Failed to start Steam.");
+        }
+
+        private static async Task DownloadWithFallbackAsync(string[] urls, string outputPath, CancellationToken token)
+        {
+            foreach (var url in urls)
+            {
+                try
+                {
+                    using var response = await httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, token);
+                    response.EnsureSuccessStatusCode();
+
+                    await using var stream = await response.Content.ReadAsStreamAsync(token);
+                    await using var fileStream = File.Create(outputPath);
+                    await stream.CopyToAsync(fileStream, token);
+
+                    return; // Success, exit the method
+                }
+                catch { }
+            }
+            throw new Exception($"All download attempts failed for {outputPath}");
         }
 
         #region OpenSteamTool Injector
