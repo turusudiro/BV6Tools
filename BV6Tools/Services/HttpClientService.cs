@@ -2,31 +2,26 @@
 
 namespace BV6Tools.Services;
 
-public class HttpClientService
+public class HttpClientService(IHttpClientFactory httpClientFactory)
 {
-    private readonly HttpClient httpClient;
+    private readonly HttpClient httpClient = httpClientFactory.CreateClient();
 
-    public HttpClientService(IHttpClientFactory httpClientFactory)
+    public async Task<byte[]> DownloadDataAsync(string url, CancellationToken token = default)
     {
-        httpClient = httpClientFactory.CreateClient();
+        return await httpClient.GetByteArrayAsync(url, token);
     }
 
-    public async Task<byte[]> DownloadDataAsync(string url)
+    public async Task<byte[]> DownloadDataAsync(HttpRequestMessage httpRequestMessage, CancellationToken token = default)
     {
-        return await httpClient.GetByteArrayAsync(url);
-    }
-
-    public async Task<byte[]> DownloadDataAsync(string url, HttpRequestMessage httpRequestMessage)
-    {
-        var response = await httpClient.SendAsync(httpRequestMessage);
+        var response = await httpClient.SendAsync(httpRequestMessage, token);
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadAsByteArrayAsync();
+        return await response.Content.ReadAsByteArrayAsync(token);
     }
 
-    public async Task<string> DownloadStringAsync(string url)
+    public async Task<string> DownloadStringAsync(string url, CancellationToken token)
     {
-        var response = await httpClient.GetAsync(url);
+        var response = await httpClient.GetAsync(url, token);
         if (!response.IsSuccessStatusCode) return string.Empty;
-        return await response.Content.ReadAsStringAsync();
+        return await response.Content.ReadAsStringAsync(token);
     }
 }
