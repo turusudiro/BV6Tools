@@ -15,43 +15,44 @@ namespace BV6Tools.Services.ManifestDownloader
 
     public partial class ManifestDownloader(HttpClientService httpClientService) : IManifestDownloader
     {
-        private readonly HttpClientService httpClientService;
+        private const string githubUserContentUrl = "https://raw.githubusercontent.com/";
+        private readonly HttpClientService httpClientService = httpClientService;
 
         private readonly string[] repos =
-        {
+        [
             "hammerwebsite12/sojogames2",
             "dvahana2424-web/sojogamesdatabase1",
             "SPIN0ZAi/SB_manifest_DB",
             "SSMGAlt/ManifestHub2",
             "Auiowu/ManifestAutoUpdate"
-        };
+        ];
 
-        public ManifestDownloader(HttpClientService httpClientService)
-        {
-            this.httpClientService = httpClientService;
-        }
+        [GeneratedRegex(@"/blob/(?<SHA>[^/]+)/(?<Path>.+)")]
+        private static partial Regex GroupBlobPathAndSHAFromURL { get; }
 
         public async Task<byte[]?> DownloadFileAsync(string repo, string sha, string path, CancellationToken token = default)
         {
+            // Some of them are provided from https://githubproxy.net/services/
             string[] mirrors =
             [
-            $"https://raw.githubusercontent.com/{repo}/{sha}/{path}",
-            $"https://ghproxy.com/{repo}/{sha}/{path}",
+            $"https://cdn.statically.io/gh/{repo}@{sha}/{path}",
+            $"https://gh-proxy.org/{githubUserContentUrl}{repo}/{sha}/{path}",
             $"https://cdn.jsdelivr.net/gh/{repo}@{sha}/{path}",
+            $"https://ghfast.top/{githubUserContentUrl}{repo}/{sha}/{path}",
             $"https://cdn.jsdmirror.com/gh/{repo}@{sha}/{path}",
-            $"https://raw.gitmirror.com/{repo}/{sha}/{path}",
-            $"https://raw.dgithub.xyz/{repo}/{sha}/{path}"
+            $"https://raw.githubusercontent.com/{repo}/{sha}/{path}",
             ];
+
             for (var retry = 3; retry > 0; retry--)
             {
                 foreach (var url in mirrors)
                 {
                     try
                     {
-                    var request = new HttpRequestMessage(HttpMethod.Get, url);
-                    request.Headers.UserAgent.ParseAdd(
-                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36");
-                    request.Headers.Accept.ParseAdd("*/*");
+                        var request = new HttpRequestMessage(HttpMethod.Get, url);
+                        request.Headers.UserAgent.ParseAdd(
+                            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36");
+                        request.Headers.Accept.ParseAdd("*/*");
                         var result = await httpClientService.DownloadDataAsync(request, token);
 
                         if (result != null && result.Length > 0)
@@ -299,8 +300,5 @@ namespace BV6Tools.Services.ManifestDownloader
 
             return sb.ToString();
         }
-
-        [GeneratedRegex(@"/blob/(?<SHA>[^/]+)/(?<Path>.+)")]
-        private static partial Regex GroupBlobPathAndSHAFromURL { get; }
     }
 }
