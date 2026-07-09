@@ -358,6 +358,8 @@ public partial class DashboardViewModel : ObservableRecipient, INavigationAware
 
             foreach (var feature in items)
             {
+                // rare case when list of featured items has same appid
+                if (Games.ContainsKey(feature.AppId)) continue;
                 var game = new GameViewModel
                 {
                     AppId = feature.AppId,
@@ -365,8 +367,8 @@ public partial class DashboardViewModel : ObservableRecipient, INavigationAware
                 };
 
                 keyValuePairs[game.AppId] = game.Name;
-
-                Games.Add(game);
+                
+                Games[game.AppId] = game;
                 await Dispatcher.Yield();
             }
 
