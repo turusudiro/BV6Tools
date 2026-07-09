@@ -46,12 +46,27 @@ namespace BV6Tools.Services.ManifestDownloader
             {
                 foreach (var url in mirrors)
                 {
-                    token.ThrowIfCancellationRequested();
+                    try
+                    {
                     var request = new HttpRequestMessage(HttpMethod.Get, url);
                     request.Headers.UserAgent.ParseAdd(
                         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36");
                     request.Headers.Accept.ParseAdd("*/*");
-                    return await httpClientService.DownloadDataAsync(url, request);
+                        var result = await httpClientService.DownloadDataAsync(request, token);
+
+                        if (result != null && result.Length > 0)
+                        {
+                            var contentStart = Encoding.UTF8.GetString([.. result.Take(Math.Min(100, result.Length))]);
+                            if (!contentStart.TrimStart().StartsWith("<!DOCTYPE", StringComparison.OrdinalIgnoreCase) &&
+                                !contentStart.TrimStart().StartsWith("<html", StringComparison.OrdinalIgnoreCase))
+                            {
+                                return result;
+                            }
+                        }
+                    }
+                    catch (HttpRequestException) { }
+                }
+
                 if (retry > 1)
                 {
                     await Task.Delay(TimeSpan.FromSeconds(Math.Pow(2, 4 - retry)), token);
@@ -66,6 +81,13 @@ namespace BV6Tools.Services.ManifestDownloader
             progress?.Report(new ProgressInfo("Searching manifest", IsIndeterminate: true));
 
             var manifestLink = await GetManifestLinkAsync(progress, appid, token);
+
+            // Validate that .lua files exist
+            var hasLuaFiles = manifestLink.Any(link => link.Path.EndsWith(".lua", StringComparison.OrdinalIgnoreCase));
+            if (!hasLuaFiles)
+            {
+                progress?.Report(new ProgressInfo("Warning: No .lua files found in repository"));
+            }
             if (manifestLink.Count == 0) throw new InvalidOperationException("No Manifest link found in any repo");
 
             token.ThrowIfCancellationRequested();
@@ -161,7 +183,7 @@ namespace BV6Tools.Services.ManifestDownloader
                 {
                     progress?.Report(new ProgressInfo($"Downloading {link.Path} and parsing the available key",
                         progressValue++));
-                    var bytes = await DownloadFileAsync(link.Repo, link.SHA, link.Path);
+                    var bytes = await DownloadFileAsync(link.Repo, link.SHA, link.Path, token);
                     if (bytes == null || bytes.Length == 0) continue;
 
                     using var stream = new MemoryStream(bytes, 0, bytes.Length, writable: false);
