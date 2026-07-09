@@ -27,8 +27,6 @@ namespace BV6Tools.ViewModels.Pages;
 
 public partial class DepotPageViewModel : AppManagerPageViewModel, INavigationAware
 {
-    private readonly IContentDialogService contentDialogService;
-
     private readonly HashSet<uint> excludedAppIds =
     [
         480,
@@ -50,7 +48,6 @@ public partial class DepotPageViewModel : AppManagerPageViewModel, INavigationAw
     public DepotPageViewModel(IContentDialogService contentDialogService, ISnackbarService snackbarService, ILoggerService logger,
         ISettingsService settings, GameService gameService, DatabaseService databaseService, InjectorService injectorService) : base(contentDialogService, gameService, snackbarService, databaseService, settings)
     {
-        this.contentDialogService = contentDialogService;
         this.snackbarService = snackbarService;
         this.logger = logger;
         this.settings = settings;
@@ -92,6 +89,12 @@ public partial class DepotPageViewModel : AppManagerPageViewModel, INavigationAw
         {
             ProcessLua(m.LuaData, m.AppId, m.Name);
         });
+    }
+
+    protected override void OnDirtyChanged()
+    {
+        Messenger.Send(new NavigationPageBadgeMessage(nameof(DepotPageViewModel), dirtyGames.Count));
+        base.OnDirtyChanged();
     }
 
     protected override void OnProfileChangedMessage(object r, ProfileChangedMessage m)
@@ -243,11 +246,7 @@ public partial class DepotPageViewModel : AppManagerPageViewModel, INavigationAw
             GamesView.Refresh();
         }
     }
-    protected override void OnDirtyChanged()
-    {
-        Messenger.Send(new NavigationPageBadgeMessage(nameof(DepotPageViewModel), dirtyGames.Count));
-        base.OnDirtyChanged();
-    }
+
     [RelayCommand]
     private void OpenLibrary(AppViewModel app)
     {

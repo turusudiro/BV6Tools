@@ -79,7 +79,7 @@ public partial class SearchPageViewModel : ObservableRecipient
 
                 token.ThrowIfCancellationRequested();
 
-                var bytes = await httpClientService.DownloadDataAsync(app.HeaderImage).ConfigureAwait(false);
+                var bytes = await httpClientService.DownloadDataAsync(app.HeaderImage, token).ConfigureAwait(false);
 
                 token.ThrowIfCancellationRequested();
 
