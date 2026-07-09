@@ -297,7 +297,10 @@ public partial class DepotPageViewModel : AppManagerPageViewModel, INavigationAw
                 game.Depot[depotId] = app;
             }
 
-            app.DecryptionKey = luaData.Appids[depot.Key].GetValueOrDefault().DecryptionKey ?? null;
+            if (luaData.Appids.TryGetValue(depot.Key, out var luaAppId) && luaAppId is LuaAppIdWithKey appIdWithKey)
+            {
+                app.DecryptionKey = appIdWithKey.DecryptionKey ?? null;
+            }
             app.ManifestMissing = depot.Value.ManifestID.IsNullOrEmpty();
         }
         RefreshSelectAll(game);
