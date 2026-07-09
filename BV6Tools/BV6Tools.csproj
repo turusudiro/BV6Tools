@@ -33,38 +33,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Remove="App.ico" />
-    <None Remove="Assets\bv6tools-icon-128.png" />
-    <None Remove="Assets\bv6tools-icon-16.png" />
-    <None Remove="Assets\bv6tools-icon-256.png" />
-    <None Remove="Assets\bv6tools-icon-32.png" />
-    <None Remove="Assets\bv6tools-icon-64.png" />
-    <None Remove="Assets\bv6tools-icon.ico" />
-    <None Remove="Assets\bv6tools-tray-128.png" />
-    <None Remove="Assets\bv6tools-tray-16.png" />
-    <None Remove="Assets\bv6tools-tray-256.png" />
-    <None Remove="Assets\bv6tools-tray-32.png" />
-    <None Remove="Assets\bv6tools-tray-64.png" />
-    <None Remove="Assets\bv6tools-tray.ico" />
-  </ItemGroup>
-
-  <ItemGroup>
+	<Resource Include="Assets\**\*.png;Assets\**\*.ico" />
     <Content Include="bv6tools-icon.ico" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Resource Include="Assets\bv6tools-icon-128.png" />
-    <Resource Include="Assets\bv6tools-icon-16.png" />
-    <Resource Include="Assets\bv6tools-icon-256.png" />
-    <Resource Include="Assets\bv6tools-icon-32.png" />
-    <Resource Include="Assets\bv6tools-icon-64.png" />
-    <Resource Include="Assets\bv6tools-icon.ico" />
-    <Resource Include="Assets\bv6tools-tray-128.png" />
-    <Resource Include="Assets\bv6tools-tray-16.png" />
-    <Resource Include="Assets\bv6tools-tray-256.png" />
-    <Resource Include="Assets\bv6tools-tray-32.png" />
-    <Resource Include="Assets\bv6tools-tray-64.png" />
-    <Resource Include="Assets\bv6tools-tray.ico" />
   </ItemGroup>
 
   <ItemGroup>
@@ -72,9 +42,6 @@
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
       <AutoGen>True</AutoGen>
       <DependentUpon>Settings.settings</DependentUpon>
-    </Compile>
-    <Compile Update="Views\Dialogs\EditDialog.xaml.cs">
-      <SubType>Code</SubType>
     </Compile>
   </ItemGroup>
 
@@ -87,5 +54,4 @@
 	
 	<Target Name="DiagPlatform" AfterTargets="PrepareForBuild">
 </Target>
-	
 </Project>
