@@ -249,7 +249,7 @@ namespace BV6Tools.Services.ManifestDownloader
                 var manifestFiles = Directory.GetFiles(saveDir, $"{depot.Name}_*.manifest");
                 foreach (var file in manifestFiles)
                 {
-                    var manifestId = Path.GetFileNameWithoutExtension(file).Substring(depot.Name!.Length + 1);
+                    var manifestId = Path.GetFileNameWithoutExtension(file)[(depot.Name!.Length + 1)..];
                     sb.AppendLine($"setManifestid({depot.Name},\"{manifestId}\")");
                 }
             }
@@ -267,7 +267,7 @@ namespace BV6Tools.Services.ManifestDownloader
                 var manifestFiles = Directory.GetFiles(saveDir, $"{depotId}_*.manifest");
                 foreach (var file in manifestFiles)
                 {
-                    var manifestId = Path.GetFileNameWithoutExtension(file).Substring(depotId.Length + 1);
+                    var manifestId = Path.GetFileNameWithoutExtension(file)[(depotId.Length + 1)..];
                     sb.AppendLine($"setManifestid({depotId},\"{manifestId}\",0)");
                 }
             }
