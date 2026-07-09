@@ -13,7 +13,7 @@ namespace BV6Tools.Services.ManifestDownloader
     public readonly record struct ManifestDownloaderResult(LuaData LuaData, IReadOnlyCollection<ManifestResult> ManifestResult);
     public readonly record struct ManifestResult(string FileName, uint DepotID, byte[] Bytes);
 
-    public partial class ManifestDownloader : IManifestDownloader
+    public partial class ManifestDownloader(HttpClientService httpClientService) : IManifestDownloader
     {
         private readonly HttpClientService httpClientService;
 
