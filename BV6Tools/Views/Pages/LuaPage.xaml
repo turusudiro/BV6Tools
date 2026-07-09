@@ -314,18 +314,11 @@
                                                         <ui:Button Grid.Column="3"
                                                                    Margin="8,0,0,0"
                                                                    Appearance="Danger"
-                                                                   Command="{Binding DataContext.ViewModel.DeleteItemCommand,
+                                                                   Command="{Binding DataContext.ViewModel.RemoveCommand,
                                                                                      RelativeSource={RelativeSource AncestorType=Page}}"
+                                                                   CommandParameter="{Binding}"
                                                                    DockPanel.Dock="Right"
-                                                                   Icon="{ui:SymbolIcon Symbol=Delete24}">
-                                                            <ui:Button.CommandParameter>
-                                                                <MultiBinding Converter="{StaticResource MultiValueToObjectArrayConverter}">
-                                                                    <Binding />
-                                                                    <Binding Path="DataContext"
-                                                                             RelativeSource="{RelativeSource AncestorType=ui:VirtualizingItemsControl}" />
-                                                                </MultiBinding>
-                                                            </ui:Button.CommandParameter>
-                                                        </ui:Button>
+                                                                   Icon="{ui:SymbolIcon Symbol=Delete24}" />
                                                     </Grid>
                                                 </DataTemplate>
                                             </ui:VirtualizingItemsControl.ItemTemplate>
@@ -445,17 +438,10 @@
                                                         <ui:Button Grid.Column="3"
                                                                    VerticalAlignment="Center"
                                                                    Appearance="Danger"
-                                                                   Command="{Binding DataContext.ViewModel.DeleteItemCommand,
+                                                                   Command="{Binding DataContext.ViewModel.RemoveCommand,
                                                                                      RelativeSource={RelativeSource AncestorType=Page}}"
-                                                                   Icon="{ui:SymbolIcon Symbol=Delete24}">
-                                                            <ui:Button.CommandParameter>
-                                                                <MultiBinding Converter="{StaticResource MultiValueToObjectArrayConverter}">
-                                                                    <Binding />
-                                                                    <Binding Path="DataContext"
-                                                                             RelativeSource="{RelativeSource AncestorType=ui:VirtualizingItemsControl}" />
-                                                                </MultiBinding>
-                                                            </ui:Button.CommandParameter>
-                                                        </ui:Button>
+                                                                   CommandParameter="{Binding}"
+                                                                   Icon="{ui:SymbolIcon Symbol=Delete24}" />
                                                     </Grid>
                                                 </DataTemplate>
                                             </ui:VirtualizingItemsControl.ItemTemplate>
@@ -539,18 +525,11 @@
                                                         <ui:Button Grid.Column="2"
                                                                    Margin="8,0,0,0"
                                                                    Appearance="Danger"
-                                                                   Command="{Binding DataContext.ViewModel.DeleteItemCommand,
+                                                                   Command="{Binding DataContext.ViewModel.RemoveCommand,
                                                                                      RelativeSource={RelativeSource AncestorType=Page}}"
+                                                                   CommandParameter="{Binding}"
                                                                    DockPanel.Dock="Right"
-                                                                   Icon="{ui:SymbolIcon Symbol=Delete24}">
-                                                            <ui:Button.CommandParameter>
-                                                                <MultiBinding Converter="{StaticResource MultiValueToObjectArrayConverter}">
-                                                                    <Binding />
-                                                                    <Binding Path="DataContext"
-                                                                             RelativeSource="{RelativeSource AncestorType=ui:VirtualizingItemsControl}" />
-                                                                </MultiBinding>
-                                                            </ui:Button.CommandParameter>
-                                                        </ui:Button>
+                                                                   Icon="{ui:SymbolIcon Symbol=Delete24}" />
                                                     </Grid>
                                                 </DataTemplate>
                                             </ui:VirtualizingItemsControl.ItemTemplate>

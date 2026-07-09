@@ -33,11 +33,11 @@ namespace BV6Tools.ViewModels.Pages.Lua
         private readonly IContentDialogService contentDialogService;
         private readonly DatabaseService databaseService;
         private readonly HashSetNotify<uint> dirtyLua = [];
+        private readonly IDisposable? gamesSubscription;
         private readonly ILoggerService logger;
         private readonly IManifestDownloader manifestDownloader;
         private readonly ISettingsService settingsService;
         private readonly ISnackbarService snackbarService;
-        private IDisposable? gamesSubscription;
         private Task? initializeTask;
 
         public LuaPageViewModel(ILoggerService logger, IContentDialogService contentDialogService,
@@ -174,23 +174,9 @@ namespace BV6Tools.ViewModels.Pages.Lua
         }
 
         [RelayCommand]
-        private static void DeleteItem(object parameter)
+        private static void Remove(ITrackable trackable)
         {
-            if (parameter is not object[] param) return;
-            if (param[1] is not LuaViewModel game) return;
-
-            switch (param[0])
-            {
-                case ITrackable addappid:
-                    addappid.Delete();
-                    break;
-            }
-        }
-
-        [RelayCommand]
-        private static void Remove(LuaViewModel lua)
-        {
-            lua.Delete();
+            trackable.Delete();
         }
 
         [RelayCommand]
@@ -282,7 +268,6 @@ namespace BV6Tools.ViewModels.Pages.Lua
 
                         foreach (var x in pendingTokens)
                             existing.AddToken.NewOrUpdate(x, (e, i) => e.AppId == i.AppId);
-
                     }
                     continue;
                 }
@@ -314,7 +299,7 @@ namespace BV6Tools.ViewModels.Pages.Lua
         {
             try
             {
-                var progressDialog = new ProgressDialog("Manifest Downloader", async (ProgressDialogArgs progress) =>
+                var progressDialog = new ProgressDialog("Manifest Downloader", async progress =>
                 {
                     var progressInfo = new Progress<ProgressInfo>((p) =>
                     {
@@ -657,7 +642,6 @@ namespace BV6Tools.ViewModels.Pages.Lua
                 }
                 dlcs.Add(uint.Parse(id.Key));
             }
-
 
             foreach (var (id, manifest) in luaData.Manifest)
             {
