@@ -52,6 +52,9 @@ namespace BV6Tools.Services.ManifestDownloader
                         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36");
                     request.Headers.Accept.ParseAdd("*/*");
                     return await httpClientService.DownloadDataAsync(url, request);
+                if (retry > 1)
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(Math.Pow(2, 4 - retry)), token);
                 }
             }
             return null;
