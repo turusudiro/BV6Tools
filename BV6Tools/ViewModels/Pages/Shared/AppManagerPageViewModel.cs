@@ -258,6 +258,7 @@ namespace BV6Tools.ViewModels.Pages.Shared
                 UnsubscribeItemsCollection(app, itemsCollection);
                 appidsToRelease.TryAdd(app.AppId, [.. itemsCollection.Select(x => x.AppId)]);
             }
+            Games.CollectionChanged += OnGamesCollectionChanged;
 
             gameService.ReleaseApp(appidsToRelease);
 
