@@ -81,7 +81,13 @@ public partial class DashboardViewModel : ObservableRecipient, INavigationAware
     public ProfileDbViewModel SelectedProfile
     {
         get => gameService.ActiveProfile;
-        set => gameService.ActiveProfile = value;
+        set
+        {
+            if (value != null)
+            {
+                gameService.ActiveProfile = value;
+            }
+        }
     }
 
     public Task OnNavigatedFromAsync()

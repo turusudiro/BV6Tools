@@ -79,7 +79,13 @@ public partial class SettingsPageViewModel : ObservableRecipient, INavigationAwa
     public ProfileDbViewModel SelectedProfile
     {
         get => gameService.ActiveProfile;
-        set => gameService.ActiveProfile = value;
+        set
+        {
+            if (value != null)
+            {
+                gameService.ActiveProfile = value;
+            }
+        }
     }
 
     [ObservableProperty]
