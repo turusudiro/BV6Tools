@@ -1,4 +1,4 @@
-﻿using BV6Tools.Services;
+using BV6Tools.Services;
 using BV6Tools.Services.Database;
 using BV6Tools.Services.Injector;
 using BV6Tools.Services.ManifestDownloader;
@@ -14,6 +14,8 @@ using SteamCommon;
 using System.IO;
 using System.IO.Pipes;
 using System.Net.Http;
+using System.Security.AccessControl;
+using System.Security.Principal;
 using System.Windows.Threading;
 using Wpf.Ui;
 using Wpf.Ui.DependencyInjection;
@@ -102,6 +104,7 @@ public partial class App
                 _ = services.AddSingleton<DatabaseService>();
                 _ = services.AddSingleton<InjectorService>();
                 _ = services.AddSingleton<IToastService, ToastService>();
+                _ = services.AddSingleton<InjectorManagerService>();
             }
             )
         .Build();
@@ -121,11 +124,32 @@ public partial class App
     {
         _cts = new CancellationTokenSource();
 
+        var trayWindow = Services.GetRequiredService<TrayWindow>();
+
         Task.Run(async () =>
         {
             while (!_cts.Token.IsCancellationRequested)
             {
-                using var server = new NamedPipeServerStream("BV6Tools_Pipe");
+                var pipeSecurity = new PipeSecurity();
+
+                var usersGroup = new SecurityIdentifier(WellKnownSidType.BuiltinUsersSid, null);
+                pipeSecurity.AddAccessRule(new PipeAccessRule(
+                    usersGroup,
+                    PipeAccessRights.ReadWrite,
+                    AccessControlType.Allow
+                ));
+
+                using var server = NamedPipeServerStreamAcl.Create(
+                    pipeName: "BV6Tools_Pipe",
+                    direction: PipeDirection.InOut,
+                    maxNumberOfServerInstances: 1,
+                    transmissionMode: PipeTransmissionMode.Byte,
+                    options: PipeOptions.Asynchronous,
+                    inBufferSize: 0,
+                    outBufferSize: 0,
+                    pipeSecurity: pipeSecurity
+                );
+
                 await server.WaitForConnectionAsync(_cts.Token);
 
                 using var reader = new StreamReader(server);
@@ -135,8 +159,7 @@ public partial class App
                 {
                     await Current.Dispatcher.InvokeAsync(() =>
                     {
-                        var navigationWindow = Services.GetRequiredService<INavigationWindow>();
-                        navigationWindow.ShowWindow();
+                        trayWindow.OpenWindowCommand.Execute(default);
                     });
                 }
             }
