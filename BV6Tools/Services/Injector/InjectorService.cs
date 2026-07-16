@@ -27,7 +27,8 @@ namespace BV6Tools.Services.Injector
         IReadOnlyCollection<uint> Appids,
         ProcessMode Mode,
         int PID,
-        string Path
+        string Path,
+        string? Args
     );
 
     /// <summary>
@@ -69,8 +70,6 @@ namespace BV6Tools.Services.Injector
         public event Action<SteamProcessData>? OnInjected;
 
         public event Action<object, Exception>? OnInjectFailed;
-
-        public void RaiseInjectFailed(Exception ex) => OnInjectFailed?.Invoke(ex);
 
         public bool IsSteamRunning
         {
@@ -241,30 +240,38 @@ namespace BV6Tools.Services.Injector
                 _steamExitTask = Task.CompletedTask;
             }
 
-            using (steam)
+            try
             {
-                var exitTask = steam.WaitForExitAsync();
-                lock (_lock) _steamExitTask = exitTask;
-                await exitTask;
-            }
-
-            // In GreenLuma Normal mode, DLLInjector outlives Steam (it's the one that
-            // issues the -shutdown). Wait for it to release file handles before
-            // signalling that cleanup can run.
-            if (state.Mode == ProcessMode.GreenLumaNormal)
-            {
-                using var injector = Process.GetProcessesByName("DLLInjector").FirstOrDefault();
-                if (injector != null)
+                using (steam)
                 {
-                    await injector.WaitForExitAsync();
+                    var exitTask = WaitForExitWithFallbackAsync(steam);
+                    lock (_lock) _steamExitTask = exitTask;
+                    await exitTask;
+                }
+
+                // In GreenLuma Normal mode, DLLInjector outlives Steam (it's the one that
+                // issues the -shutdown). Wait for it to release file handles before
+                // signalling that cleanup can run.
+                if (state.Mode == ProcessMode.GreenLumaNormal)
+                {
+                    using var injector = Process.GetProcessesByName("DLLInjector").FirstOrDefault();
+                    if (injector != null)
+                    {
+                        await WaitForExitWithFallbackAsync(injector);
+                    }
                 }
             }
-
-            IsSteamRunning = false;
-            lock (_lock)
+            finally
             {
-                _steamExitTask = null;
-                _trackedSteamProcess = null;
+                // Always clear tracking state, even if something above threw -
+                // otherwise the watcher loop can get stuck seeing a permanently
+                // faulted/incomplete _steamExitTask and never re-check reality.
+                IsSteamRunning = false;
+                lock (_lock)
+                {
+                    _steamExitTask = null;
+                    _trackedSteamProcess = null;
+                }
             }
 
             // Only run cleanup if this exit corresponds to a session we injected.
@@ -275,6 +282,46 @@ namespace BV6Tools.Services.Injector
                 CleanupTask?.Invoke(state);
             }
             catch { }
+        }
+
+        /// <summary>
+        ///     Waits for <paramref name="process"/> to exit. Falls back to polling
+        ///     <see cref="Process.HasExited"/> if we can't get a wait handle for it -
+        ///     happens when the process is elevated (e.g. Steam as admin) and we're
+        ///     not, since Windows blocks that across integrity levels. HasExited
+        ///     only needs query rights, so it still works either way.
+        /// </summary>
+        private static async Task WaitForExitWithFallbackAsync(Process process)
+        {
+            try
+            {
+                await process.WaitForExitAsync();
+                return;
+            }
+            catch (Win32Exception)
+            {
+                // Access denied opening a SYNCHRONIZE handle - fall through to polling.
+            }
+            catch (InvalidOperationException)
+            {
+                // No associated process, or it already exited - treat as done.
+                return;
+            }
+
+            while (true)
+            {
+                try
+                {
+                    if (process.HasExited) return;
+                }
+                catch
+                {
+                    // Can no longer query the process (e.g. it's gone) - treat as exited.
+                    return;
+                }
+
+                await Task.Delay(PollIntervalMs);
+            }
         }
 
         private async Task RunWatcherAsync(CancellationToken token)
@@ -290,8 +337,10 @@ namespace BV6Tools.Services.Injector
                     {
                         if (exitTask.IsCompleted)
                         {
-                            // Steam itself has exited, but WaitForSteamExitAsync is still
-                            // finishing up (post-exit cleanup) - check back shortly.
+                            // Steam already exited, but WaitForSteamExitAsync hasn't
+                            // reset _trackedSteamProcess/_steamExitTask yet - it might
+                            // still be waiting on DLLInjector to let go. Wait a bit,
+                            // then check again.
                             await Task.Delay(ExitCleanupPollIntervalMs, token);
                         }
                         else

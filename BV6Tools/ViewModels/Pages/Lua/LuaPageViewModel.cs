@@ -515,7 +515,6 @@ namespace BV6Tools.ViewModels.Pages.Lua
                                     using var entryStream = entry.OpenEntryStream();
                                     using var ms = new MemoryStream();
                                     await entryStream.CopyToAsync(ms);
-                                    System.Diagnostics.Debug.WriteLine($"Size is {ms.Length}");
                                     var bytes = ms.ToArray();
                                     await File.WriteAllBytesAsync(Path.Combine(manifestPath, fileName), bytes);
                                     await File.WriteAllBytesAsync(Path.Combine(depotCachePath, fileName), bytes);

@@ -5,10 +5,6 @@ using BV6Tools.ViewModels.Pages.Lua;
 using BV6Tools.Views.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using System.Diagnostics;
-using System.IO;
-using System.IO.Pipes;
-using System.Text.Json;
 using Wpf.Ui;
 
 namespace BV6Tools.Services;
@@ -45,55 +41,48 @@ public class ApplicationHostService(IServiceProvider serviceProvider) : IHostedS
     {
         await Task.CompletedTask;
 
-        var injectorService = serviceProvider.GetRequiredService<InjectorService>();
-        var toastService = serviceProvider.GetRequiredService<IToastService>();
-        var settingsService = serviceProvider.GetRequiredService<ISettingsService>();
-        var logger = serviceProvider.GetRequiredService<ILoggerService>();
-
-        injectorService.OnInjected += async state =>
-        {
-            try
-            {
-                injectorService.SaveState(state);
-                if (!settingsService.Settings.DisableCleanup && !state.Mode.HasFlag(ProcessMode.GreenLumaStealth))
-                {
-                    if (!Mutex.TryOpenExisting("BV6Tools_SteamWatcher", out _))
-                    {
-                        Process.Start(new ProcessStartInfo
-                        {
-                            FileName = Environment.ProcessPath,
-                            Arguments = "--steam-watcher",
-                            UseShellExecute = false,
-                            CreateNoWindow = true,
-                        });
-                    }
-
-                    using var pipe = new NamedPipeClientStream(".", "BV6Tools_SteamWatcher_Pipe", PipeDirection.Out);
-                    pipe.Connect(3000);
-                    using var writer = new StreamWriter(pipe) { AutoFlush = true };
-                    writer.WriteLine(JsonSerializer.Serialize(state));
-
-                    toastService.Show(t => t.AddText("Cleanup Scheduled").AddText("Monitoring Steam. Files will be removed automatically upon exit."), "SteamCleanupTag");
-                }
-
-                if (settingsService.Settings.OnInject.HasFlag(Models.OnInject.Exit))
-                {
-                    Application.Current.Shutdown();
-                }
-                else
-                {
-                    _ = injectorService.WaitForSteamExitAsync();
-                }
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex);
-                toastService.Show(t => t.AddText("Failed to schedule cleanup").AddText(ex.Message), "SteamCleanupTag");
-                injectorService.RaiseInjectFailed(ex);
-            }
-        };
-
         serviceProvider.GetRequiredService<TrayWindow>();
+
+        if (App.StartSteam)
+        {
+            var toastService = serviceProvider.GetRequiredService<IToastService>();
+
+            _ = Task.Run(async () =>
+            {
+                var logger = serviceProvider.GetRequiredService<ILoggerService>();
+                logger.Log("Starting from startup");
+
+                if (SteamCommon.Steam.IsSteamStartupEnabled())
+                {
+                    logger.Log("Steam startup detected, waiting steam to start");
+                    // wait 10 secs to steam start from startup
+                    await SteamCommon.Steam.WaitForSteamAsync(TimeSpan.FromSeconds(10));
+
+                    // check if steam is running but steam active pid from registry is 0
+                    // this means steam is on update state
+                    if (SteamCommon.Steam.GetSteamActiveProcessPid() == 0)
+                    {
+                        // wait for steam active pid change, if not changed after 5 secs, kill steam
+                        var pidChanged = await SteamCommon.Steam.WaitForSteamPidChangeAsync();
+                        if (!pidChanged)
+                        {
+                            await SteamCommon.Steam.KillSteamAsync();
+                        }
+                    }
+                    await SteamCommon.Steam.ShutdownSteamAsync();
+                }
+
+                var gameService = serviceProvider.GetRequiredService<GameService>();
+                var settingsService = serviceProvider.GetRequiredService<ISettingsService>();
+                var injectorManagerService = serviceProvider.GetRequiredService<InjectorManagerService>();
+                try
+                {
+                    var args = "-silent " + string.Join(" ", settingsService.Settings.SteamArgs);
+                    await injectorManagerService.Inject(gameService.EnabledAppids, settingsService.Settings.Mode, args);
+                }
+                catch { }
+            });
+        }
 
         if (!App.StartMinimized && !Application.Current.Windows.OfType<MainWindow>().Any())
         {

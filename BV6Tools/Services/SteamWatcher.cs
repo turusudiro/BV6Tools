@@ -1,4 +1,4 @@
-﻿using AppPathsCommon;
+using AppPathsCommon;
 using BV6Tools.Services.Injector;
 using GreenLumaCommon;
 using Microsoft.Win32;
@@ -14,8 +14,8 @@ namespace BV6Tools.Services
 {
     internal static class SteamWatcherRunner
     {
+        internal const string PipeName = "BV6Tools_SteamWatcher_Pipe";
         private const string MutexName = "BV6Tools_SteamWatcher";
-        private const string PipeName = "BV6Tools_SteamWatcher_Pipe";
 
         public static void Run()
         {
@@ -25,7 +25,7 @@ namespace BV6Tools.Services
             thread.Join();
         }
 
-        private static Task HandleCleanup(SteamProcessData state, IToastService toastService, Func<bool> isSessionEnding)
+        private static Task HandleCleanup(SteamProcessData state, ToastService toastService, Func<bool> isSessionEnding)
         {
             try
             {
@@ -76,7 +76,7 @@ namespace BV6Tools.Services
             return Task.CompletedTask;
         }
 
-        private static async Task ListenForStopAsync(InjectorService injectorService, CancellationToken token)
+        private static async Task ListenForCommandsAsync(TaskCompletionSource<bool> cleanupDoneTcs, CancellationToken token)
         {
             while (!token.IsCancellationRequested)
             {
@@ -113,23 +113,22 @@ namespace BV6Tools.Services
                 var line = await reader.ReadLineAsync(token);
                 if (line == "--stop")
                 {
-                    injectorService.StopWatcher();
+                    Environment.Exit(0);
+                    return;
+                }
+
+                if (line == "--wait-cleanup")
+                {
+                    try
+                    {
+                        await cleanupDoneTcs.Task.WaitAsync(token);
+                        using var writer = new StreamWriter(pipe) { AutoFlush = true };
+                        await writer.WriteLineAsync();
+                    }
+                    catch (OperationCanceledException) { }
                     return;
                 }
             }
-        }
-
-        private static async Task<SteamProcessData?> ReceiveInitialStateAsync(CancellationToken token)
-        {
-            using var pipe = new NamedPipeServerStream(PipeName, PipeDirection.In,
-                maxNumberOfServerInstances: 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
-            await pipe.WaitForConnectionAsync(token);
-
-            using var reader = new StreamReader(pipe);
-            var line = await reader.ReadLineAsync(token);
-            if (line == null || line == "--stop") return null;
-
-            return JsonSerializer.Deserialize<SteamProcessData>(line);
         }
 
         private static void ThreadMain()
@@ -143,42 +142,59 @@ namespace BV6Tools.Services
             bool isSessionEnding = false;
             var cts = new CancellationTokenSource();
             var staDispatcher = Dispatcher.CurrentDispatcher;
+            var cleanupDoneTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            Task? exitTask = null;
 
             SystemEvents.SessionEnding += (_, _) =>
             {
                 isSessionEnding = true;
                 SteamCommon.Steam.KillSteamAsync().GetAwaiter().GetResult();
-                injectorService.StopWatcher();
+                exitTask?.GetAwaiter().GetResult();
                 toastService.ClearAll(true).GetAwaiter().GetResult();
                 cts.Cancel();
                 staDispatcher.InvokeShutdown();
             };
 
-            injectorService.CleanupTask += state => HandleCleanup(state, toastService, () => isSessionEnding);
+            injectorService.CleanupTask += state =>
+            {
+                var task = HandleCleanup(state, toastService, () => isSessionEnding);
+                return task.ContinueWith(_ => cleanupDoneTcs.TrySetResult(true));
+            };
 
-            _ = Task.Run(() => WatchAsync(injectorService, cts, staDispatcher));
+            _ = Task.Run(() =>
+            {
+                exitTask = WatchAsync(injectorService, toastService, cts, staDispatcher, cleanupDoneTcs);
+            });
 
             Dispatcher.Run();
         }
 
-        private static async Task WatchAsync(InjectorService injectorService, CancellationTokenSource cts, Dispatcher staDispatcher)
+        private static async Task WatchAsync(InjectorService injectorService, ToastService toastService,
+            CancellationTokenSource cts, Dispatcher staDispatcher, TaskCompletionSource<bool> cleanupDoneTcs)
         {
             try
             {
-                var state = await ReceiveInitialStateAsync(cts.Token);
-                if (state is not { } stateData)
-                {
-                    cts.Cancel();
-                    return;
-                }
-
-                injectorService.SaveState(stateData, AppPaths.SteamProcess);
-
+                var json = File.ReadAllText(AppPaths.SteamProcess);
+                var state = JsonSerializer.Deserialize<SteamProcessData>(json);
+                injectorService.SaveState(state);
                 var exitTask = injectorService.WaitForSteamExitAsync();
-                var stopTask = ListenForStopAsync(injectorService, cts.Token);
-                await Task.WhenAny(exitTask, stopTask);
+                var stopTask = ListenForCommandsAsync(cleanupDoneTcs, cts.Token);
+                toastService.Show(t => t
+                .AddText("Cleanup Scheduled")
+                .AddText("Monitoring Steam. Files will be removed automatically upon exit."), "SteamCleanupTag", 5);
+                var completed = await Task.WhenAny(exitTask, stopTask);
+
+                if (completed.IsFaulted)
+                {
+                    var ex = completed.Exception?.GetBaseException();
+                    toastService.Show(t => t.AddText("Watcher stopped unexpectedly").AddText(ex?.Message ?? "Unknown error"), "SteamCleanupTag");
+                }
             }
             catch (OperationCanceledException) { }
+            catch (Exception ex)
+            {
+                toastService.Show(t => t.AddText("Failed to schedule cleanup").AddText(ex.Message), "SteamCleanupTag");
+            }
             finally
             {
                 cts.Cancel();

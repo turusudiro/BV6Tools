@@ -7,49 +7,46 @@ using BV6Tools.Services.Database.Models;
 using BV6Tools.Services.Injector;
 using BV6Tools.ViewModels.Shared;
 using CommunityToolkit.Mvvm.Messaging;
-using GreenLumaCommon;
 using ImageCommon;
-using STCommon;
 using SteamCommon;
 using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.IO;
 using System.Windows.Data;
 using System.Windows.Threading;
 using Wpf.Ui;
 using Wpf.Ui.Abstractions.Controls;
 using Wpf.Ui.Controls;
-using Wpf.Ui.Extensions;
 
 namespace BV6Tools.ViewModels.Pages;
 
 public partial class DashboardViewModel : ObservableRecipient, INavigationAware
 {
-    private readonly IContentDialogService contentDialogService;
     private readonly DatabaseService databaseService;
     private readonly GameService gameService;
     private readonly HttpClientService httpClientService;
     private readonly SemaphoreSlim imageLoadSemaphore = new(3);
     private readonly ConcurrentDictionary<GameViewModel, CancellationTokenSource> imageLoadTokens = new();
+    private readonly InjectorManagerService injectorManagerService;
     private readonly InjectorService injectorService;
     private readonly ILoggerService logger;
     private readonly ISettingsService settingsService;
     private readonly ISnackbarService snackbarService;
     private Task? initializeTask;
 
-    public DashboardViewModel(HttpClientService httpClientService, IContentDialogService contentDialogService,
-        ISnackbarService snackbarService, ISettingsService settingsService, GameService gameService,
-        DatabaseService databaseService, ILoggerService logger, InjectorService injectorService)
+    public DashboardViewModel(HttpClientService httpClientService, ISnackbarService snackbarService,
+        ISettingsService settingsService, GameService gameService,
+        DatabaseService databaseService, ILoggerService logger, InjectorService injectorService,
+        InjectorManagerService injectorManagerService)
     {
-        this.contentDialogService = contentDialogService;
         this.httpClientService = httpClientService;
         this.snackbarService = snackbarService;
         this.settingsService = settingsService;
         this.logger = logger;
         this.injectorService = injectorService;
+        this.injectorManagerService = injectorManagerService;
 
         injectorService.IsSteamRunningChanged += SteamWatcher_IsSteamRunningChanged;
         IsSteamRunning = injectorService.IsSteamRunning;
@@ -63,19 +60,9 @@ public partial class DashboardViewModel : ObservableRecipient, INavigationAware
         gameService.Apps.CollectionChanged += OnAppsCollectionChanged;
         gameService.Apps.ItemPropertyChanged += OnAppPropertyChanged;
 
-        injectorService.LoadState(AppPaths.SteamProcess);
-
         Profiles = gameService.Profiles;
 
         IsActive = true;
-
-        if (App.StartSteam)
-        {
-            Application.Current.Dispatcher.InvokeAsync(async () =>
-            {
-                await StartSteamCommand.ExecuteAsync(true);
-            }, DispatcherPriority.Loaded);
-        }
     }
 
     public ObservableDictionary<uint, AppViewModel> Apps { get; } = [];
@@ -114,19 +101,6 @@ public partial class DashboardViewModel : ObservableRecipient, INavigationAware
     {
         Messenger.Register<AddedMessage, string>(this, MessengerTokens.Dashboard, OnAddedMessageHandler);
         Messenger.Register<ProfileChangedMessage>(this, OnProfileChangedMessage);
-    }
-
-    private async Task CleanGreenLuma()
-    {
-        await Steam.KillSteamAsync();
-        try
-        {
-            GreenLuma.CleanGreenLumaFiles(settingsService.Settings.SteamPath, AppPaths.GLPath);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex);
-        }
     }
 
     [RelayCommand]
@@ -367,7 +341,7 @@ public partial class DashboardViewModel : ObservableRecipient, INavigationAware
                 };
 
                 keyValuePairs[game.AppId] = game.Name;
-                
+
                 Games[game.AppId] = game;
                 await Dispatcher.Yield();
             }
@@ -394,173 +368,18 @@ public partial class DashboardViewModel : ObservableRecipient, INavigationAware
                 {
                     await Steam.KillSteamAsync();
                 }
+                injectorManagerService.CancelInject();
                 return;
             }
             await Steam.KillSteamAsync();
+            await injectorManagerService.WaitForWatcherCleanupAsync();
         }
 
         try
         {
-            var args = fromArgs.GetValueOrDefault(false) ? "-silent" : null;
-            int pid = 0;
-            switch (settingsService.Settings.Mode)
-            {
-                case ProcessMode.SteamTools:
-                    {
-                        var tickets = databaseService.Database.LoadAll<TicketDb>();
-                        List<SetTicket> setTickets = [];
-
-                        foreach (var ticket in tickets)
-                        {
-                            if (!gameService.EnabledAppids.Contains(ticket.AppId)) continue;
-                            if (ticket.AppTicketBytes != null)
-                            {
-                                setTickets.Add(new SetTicket(ticket.AppId, TicketType.AppOwnership, ticket.AppTicketBytes));
-                            }
-                        }
-
-                        if (tickets.Any())
-                        {
-                            ST.SaveTicket(setTickets, Path.Combine(AppPaths.LuaPath, "ticket.lua"));
-                        }
-
-                        pid = ST.StartSteamTools(AppPaths.STPath, settingsService.Settings.SteamPath, AppPaths.LuaPath, args);
-                        break;
-                    }
-                case ProcessMode.OpenSteamTool:
-                    {
-                        var tickets = databaseService.Database.LoadAll<TicketDb>();
-                        List<SetTicket> setTickets = [];
-
-                        foreach (var ticket in tickets)
-                        {
-                            if (!gameService.EnabledAppids.Contains(ticket.AppId)) continue;
-                            if (ticket.AppTicketBytes != null)
-                            {
-                                setTickets.Add(new SetTicket(ticket.AppId, TicketType.AppOwnership, ticket.AppTicketBytes));
-                            }
-                            if (ticket.EncryptedTicketBytes != null)
-                            {
-                                setTickets.Add(new SetTicket(ticket.AppId, TicketType.Encrypted, ticket.EncryptedTicketBytes));
-                            }
-                        }
-
-                        if (tickets.Any())
-                        {
-                            ST.SaveTicket(setTickets, Path.Combine(AppPaths.LuaPath, "ticket.lua"));
-                        }
-
-                        pid = ST.StartOpenSteamTool(AppPaths.OpenSteamToolPath, settingsService.Settings.SteamPath, AppPaths.LuaPath, args);
-                        break;
-                    }
-                default:
-                    {
-                        var glMode = GreenLumaMode.Stealth;
-                        if (settingsService.Settings.Mode.HasFlag(ProcessMode.GreenLumaNormal))
-                        {
-                            glMode = GreenLumaMode.Normal;
-                            var ownershipDirPath = Path.Combine(settingsService.Settings.SteamPath, "AppOwnershipTickets");
-                            var encryptedDirPath = Path.Combine(settingsService.Settings.SteamPath, "EncryptedAppTickets");
-                            Directory.CreateDirectory(ownershipDirPath);
-                            Directory.CreateDirectory(encryptedDirPath);
-
-                            var tickets = databaseService.Database.LoadAll<TicketDb>();
-
-                            foreach (var ticket in tickets)
-                            {
-                                if (!gameService.EnabledAppids.Contains(ticket.AppId)) continue;
-                                if (ticket.AppTicketBytes != null)
-                                {
-                                    var destination = Path.Combine(ownershipDirPath, $"Ticket.{ticket.AppId}");
-                                    await File.WriteAllBytesAsync(destination, ticket.AppTicketBytes);
-                                }
-                                if (ticket.EncryptedTicketBytes != null)
-                                {
-                                    var destination = Path.Combine(encryptedDirPath, $"EncryptedTicket.{ticket.AppId}");
-                                    await File.WriteAllBytesAsync(destination, ticket.EncryptedTicketBytes);
-                                }
-                            }
-                        }
-
-                        pid = await GreenLuma.StartGreenLuma(AppPaths.GLPath, settingsService.Settings.SteamPath, gameService.EnabledAppids, args, glMode);
-                        break;
-                    }
-            }
-
-            if (pid == 0) throw new InvalidOperationException("Failed to detect steam with PID 0!");
-
-            var state = new SteamProcessData(gameService.EnabledAppids, settingsService.Settings.Mode, pid, settingsService.Settings.SteamPath);
-            injectorService.RaiseInjected(state);
+            await injectorManagerService.Inject(gameService.EnabledAppids, settingsService.Settings.Mode, settingsService.Settings.SteamArgs);
         }
-        catch (IOException ex) when (ex.HResult == unchecked((int)0x80070522))
-        {
-            logger.LogError("Developer Mode is disabled!");
-            if (!Application.Current.MainWindow.IsVisible)
-            {
-                Wpf.Ui.Controls.MessageBox messageBox = new()
-                {
-                    Title = "Error",
-                    Content = $"Cannot inject Steam in {settingsService.Settings.Mode} Mode. Developer Mode is disabled, Please enable developer mode.",
-                    PrimaryButtonText = "Open developer settings",
-                    CloseButtonText = "Cancel"
-                };
-
-                if (await messageBox.ShowDialogAsync(true) != Wpf.Ui.Controls.MessageBoxResult.Primary)
-                {
-                    return;
-                }
-            }
-            else
-            {
-                var dialog = new SimpleContentDialogCreateOptions()
-                {
-                    Title = "Error",
-                    Content = $"Cannot inject Steam in {settingsService.Settings.Mode} Mode. Developer Mode is disabled, Please enable developer mode.",
-                    PrimaryButtonText = "Open developer settings",
-                    CloseButtonText = "Cancel"
-                };
-                var result = await contentDialogService.ShowSimpleDialogAsync(dialog);
-                if (result != ContentDialogResult.Primary) return;
-            }
-
-            try
-            {
-                var startInfo = new ProcessStartInfo
-                {
-                    FileName = "ms-settings:developers",
-                    UseShellExecute = true
-                };
-
-                Process.Start(startInfo);
-            }
-            catch (Exception e)
-            {
-                logger.LogError(e);
-                snackbarService.Show("Could not open Settings window automatically", e.Message, ControlAppearance.Danger, default, default);
-            }
-        }
-        catch (AggregateException ex)
-        {
-            logger.LogError(ex);
-            if (settingsService.Settings.Mode.IsGreenLuma())
-            {
-                await CleanGreenLuma();
-            }
-            foreach (var error in ex.InnerExceptions)
-            {
-                logger.LogError(error);
-                snackbarService.Show("Error", error.Message, ControlAppearance.Danger, new SymbolIcon(SymbolRegular.Warning16), default);
-            }
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex);
-            if (settingsService.Settings.Mode.IsGreenLuma())
-            {
-                await CleanGreenLuma();
-            }
-            snackbarService.Show("Error", ex.Message, ControlAppearance.Danger, new SymbolIcon(SymbolRegular.Warning16), default);
-        }
+        catch { }
     }
 
     private void SteamWatcher_IsSteamRunningChanged(bool value)
