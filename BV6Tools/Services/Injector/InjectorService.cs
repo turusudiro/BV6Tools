@@ -171,6 +171,8 @@ namespace BV6Tools.Services.Injector
         /// </summary>
         public void SaveState(SteamProcessData state, string? path = null)
         {
+            state = state with { Appids = state.Appids.ToHashSet() };
+
             if (path != null)
             {
                 var json = JsonSerializer.Serialize(state);
