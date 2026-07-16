@@ -655,6 +655,7 @@ public partial class SettingsPageViewModel : ObservableRecipient, INavigationAwa
                 setting.Mode = Settings.Mode;
                 setting.MinimizeToTray = Settings.MinimizeToTray;
                 setting.SteamPath = Settings.SteamPath;
+                setting.SteamArgs = Settings.SteamArgs;
             });
 
             if (Settings.DisableCleanup)
@@ -703,6 +704,7 @@ public partial class SettingsPageViewModel : ObservableRecipient, INavigationAwa
         Settings.Mode = settingsCopy.Mode;
         Settings.MinimizeToTray = settingsCopy.MinimizeToTray;
         Settings.SteamPath = settingsCopy.SteamPath;
+        Settings.SteamArgs = settingsCopy.SteamArgs;
 
         SaveCommand.NotifyCanExecuteChanged();
         UndoCommand.NotifyCanExecuteChanged();

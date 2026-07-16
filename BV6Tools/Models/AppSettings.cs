@@ -69,6 +69,10 @@ public partial class AppSettings : ObservableObject
 
     [DefaultEquality]
     [ObservableProperty]
+    public partial string? SteamArgs { get; set; }
+
+    [DefaultEquality]
+    [ObservableProperty]
     public partial string SteamPath { get; set; } = string.Empty;
 
     [JsonPropertyName("WindowPlacement")]

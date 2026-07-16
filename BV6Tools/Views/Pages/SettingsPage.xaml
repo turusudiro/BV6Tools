@@ -154,9 +154,25 @@
                                                                UpdateSourceTrigger=PropertyChanged}" />
                                 </DockPanel>
                             </Grid>
+                            <Grid Margin="0,12,0,0">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition />
+                                    <RowDefinition />
+                                </Grid.RowDefinitions>
+                                <control:IconLabel Label="Steam Args"
+                                                   LabelFontSize="16"
+                                                   LabelFontWeight="Medium"
+                                                   Symbol="Code24"
+                                                   SymbolFontSize="24" />
+                                <ui:TextBox Grid.Row="1"
+                                            Margin="0,12,0,0"
+                                            PlaceholderText="Example: -nofriendsui -console"
+                                            Text="{Binding ViewModel.Settings.SteamArgs,
+                                                           UpdateSourceTrigger=PropertyChanged,
+                                                           TargetNullValue={x:Static sys:String.Empty}}" />
+                            </Grid>
                             <ui:DropDownButton Margin="0,12,0,0"
-                                               HorizontalAlignment="Right"
-                                               Content="Clean Steam Injection Files">
+                                               HorizontalAlignment="Right">
                                 <ui:DropDownButton.Flyout>
                                     <ContextMenu>
                                         <ui:MenuItem Command="{Binding ViewModel.CleanSteamInjectionFilesCommand}"
@@ -172,6 +188,8 @@
                                                      Header="All Injections" />
                                     </ContextMenu>
                                 </ui:DropDownButton.Flyout>
+                                <control:IconLabel Label="Clean Steam Injection Files"
+                                                   Symbol="Broom16" />
                             </ui:DropDownButton>
                         </StackPanel>
                     </ui:Card>
