@@ -125,7 +125,26 @@ public partial class App
         {
             while (!_cts.Token.IsCancellationRequested)
             {
-                using var server = new NamedPipeServerStream("BV6Tools_Pipe");
+                var pipeSecurity = new PipeSecurity();
+
+                var usersGroup = new SecurityIdentifier(WellKnownSidType.BuiltinUsersSid, null);
+                pipeSecurity.AddAccessRule(new PipeAccessRule(
+                    usersGroup,
+                    PipeAccessRights.ReadWrite,
+                    AccessControlType.Allow
+                ));
+
+                using var server = NamedPipeServerStreamAcl.Create(
+                    pipeName: "BV6Tools_Pipe",
+                    direction: PipeDirection.InOut,
+                    maxNumberOfServerInstances: 1,
+                    transmissionMode: PipeTransmissionMode.Byte,
+                    options: PipeOptions.Asynchronous,
+                    inBufferSize: 0,
+                    outBufferSize: 0,
+                    pipeSecurity: pipeSecurity
+                );
+
                 await server.WaitForConnectionAsync(_cts.Token);
 
                 using var reader = new StreamReader(server);
