@@ -5,6 +5,8 @@ using Microsoft.Win32;
 using STCommon;
 using System.IO;
 using System.IO.Pipes;
+using System.Security.AccessControl;
+using System.Security.Principal;
 using System.Text.Json;
 using System.Windows.Threading;
 
@@ -78,8 +80,26 @@ namespace BV6Tools.Services
         {
             while (!token.IsCancellationRequested)
             {
-                using var pipe = new NamedPipeServerStream(PipeName, PipeDirection.In,
-                    maxNumberOfServerInstances: 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+                var pipeSecurity = new PipeSecurity();
+
+                var usersGroup = new SecurityIdentifier(WellKnownSidType.BuiltinUsersSid, null);
+                pipeSecurity.AddAccessRule(new PipeAccessRule(
+                    usersGroup,
+                    PipeAccessRights.ReadWrite,
+                    AccessControlType.Allow
+                ));
+
+                using var pipe = NamedPipeServerStreamAcl.Create(
+                    pipeName: PipeName,
+                    direction: PipeDirection.InOut,
+                    maxNumberOfServerInstances: 1,
+                    transmissionMode: PipeTransmissionMode.Byte,
+                    options: PipeOptions.Asynchronous,
+                    inBufferSize: 0,
+                    outBufferSize: 0,
+                    pipeSecurity: pipeSecurity
+                );
+
                 try
                 {
                     await pipe.WaitForConnectionAsync(token);
