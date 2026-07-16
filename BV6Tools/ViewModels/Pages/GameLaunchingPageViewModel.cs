@@ -180,6 +180,19 @@ public partial class GameLaunchingPageViewModel : ObservableObject, INavigationA
             UndoCommand.NotifyCanExecuteChanged();
         }
 
+        Appids.Clear();
+
+        if (Game.DLC.Any() && Unlock_DLC)
+        {
+            Appids = [.. Game.DLC.Where(x => x.IsEnabled).Select(x => x.AppId)];
+        }
+        if (Unlock_Base)
+        {
+            Appids.Add(Game.AppId);
+        }
+
+        OnPropertyChanged(nameof(Appids));
+
         WeakReferenceMessenger.Default.Send(new CounterVisibleChangedMessage(false));
         IsAddToListVisible = !gameService.EnabledAppids.Contains(Game.AppId);
     }
