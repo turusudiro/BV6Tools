@@ -357,12 +357,13 @@ namespace STCommon
             File.CreateSymbolicLink(destinationOpenSteamToolDll, openSteamToolDll);
 
             var destinationLuaPath = Path.Combine(steamPath, "config", "lua");
+
+            if (luaPath != null)
+            {
             if (Directory.Exists(destinationLuaPath))
             {
                 Directory.Delete(destinationLuaPath, true);
             }
-            if (luaPath != null)
-            {
                 Directory.CreateSymbolicLink(destinationLuaPath, luaPath);
             }
             else if (appids != null)
@@ -397,12 +398,13 @@ namespace STCommon
             File.CreateSymbolicLink(destinationDwmDll, dwmapiDll);
 
             var destinationLuaPath = Path.Combine(steamPath, "config", "stplug-in");
+
+            if (luaPath != null)
+            {
             if (Directory.Exists(destinationLuaPath))
             {
                 Directory.Delete(destinationLuaPath, true);
             }
-            if (luaPath != null)
-            {
                 Directory.CreateSymbolicLink(destinationLuaPath, luaPath);
             }
             else if (appids != null)
