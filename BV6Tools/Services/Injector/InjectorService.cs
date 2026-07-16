@@ -68,7 +68,7 @@ namespace BV6Tools.Services.Injector
         /// </summary>
         public event Action<SteamProcessData>? OnInjected;
 
-        public event Action<Exception>? OnInjectFailed;
+        public event Action<object, Exception>? OnInjectFailed;
 
         public void RaiseInjectFailed(Exception ex) => OnInjectFailed?.Invoke(ex);
 
@@ -161,6 +161,8 @@ namespace BV6Tools.Services.Injector
         }
 
         public void RaiseInjected(SteamProcessData state) => OnInjected?.Invoke(state);
+
+        public void RaiseInjectFailed(object sender, Exception ex) => OnInjectFailed?.Invoke(sender, ex);
 
         /// <summary>
         ///     Updates the internal injection state and grabs a handle to the Steam process.

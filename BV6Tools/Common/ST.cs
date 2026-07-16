@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using ProcessCommon;
+using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
 using System.Runtime.InteropServices;
@@ -360,10 +361,10 @@ namespace STCommon
 
             if (luaPath != null)
             {
-            if (Directory.Exists(destinationLuaPath))
-            {
-                Directory.Delete(destinationLuaPath, true);
-            }
+                if (Directory.Exists(destinationLuaPath))
+                {
+                    Directory.Delete(destinationLuaPath, true);
+                }
                 Directory.CreateSymbolicLink(destinationLuaPath, luaPath);
             }
             else if (appids != null)
@@ -372,8 +373,7 @@ namespace STCommon
                 SaveAppId(appids, Path.Combine(destinationLuaPath, "appids.lua"));
             }
 
-            var processInfo = new ProcessStartInfo { FileName = steamExePath, WorkingDirectory = steamPath, Arguments = args };
-            return Process.Start(processInfo)?.Id ?? throw new InvalidOperationException("Failed to start Steam.");
+            return ProcessHelper.RunAsRestrictedUser(steamExePath, args)?.Id ?? throw new InvalidOperationException("Failed to start Steam.");
         }
 
         public static int StartSteamTools(string dllPath, string steamPath, string? luaPath = default, string? args = default, IEnumerable<uint>? appids = default)
@@ -401,10 +401,10 @@ namespace STCommon
 
             if (luaPath != null)
             {
-            if (Directory.Exists(destinationLuaPath))
-            {
-                Directory.Delete(destinationLuaPath, true);
-            }
+                if (Directory.Exists(destinationLuaPath))
+                {
+                    Directory.Delete(destinationLuaPath, true);
+                }
                 Directory.CreateSymbolicLink(destinationLuaPath, luaPath);
             }
             else if (appids != null)
@@ -413,8 +413,7 @@ namespace STCommon
                 SaveAppId(appids, Path.Combine(destinationLuaPath, "appids.lua"));
             }
 
-            var processInfo = new ProcessStartInfo { FileName = steamExePath, WorkingDirectory = steamPath, Arguments = args };
-            return Process.Start(processInfo)?.Id ?? throw new InvalidOperationException("Failed to start Steam.");
+            return ProcessHelper.RunAsRestrictedUser(steamExePath, args)?.Id ?? throw new InvalidOperationException("Failed to start Steam.");
         }
 
         private static async Task DownloadWithFallbackAsync(string[] urls, string outputPath, CancellationToken token)
@@ -438,9 +437,6 @@ namespace STCommon
         }
 
         #region OpenSteamTool Injector
-
-        // Constant for waiting infinitely until a thread completes
-        private const uint INFINITE = 0xFFFFFFFF;
 
         // Used for memory allocation
         private const uint MEM_COMMIT = 0x00001000;
@@ -571,7 +567,7 @@ namespace STCommon
         public static partial bool WriteProcessMemory(
             IntPtr hProcess,
             IntPtr lpBaseAddress,
-            byte[] lpBuffer,
+            [In] byte[] lpBuffer,
             uint nSize,
             out UIntPtr lpNumberOfBytesWritten);
 

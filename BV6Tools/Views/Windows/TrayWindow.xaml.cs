@@ -1,12 +1,16 @@
 ﻿using BV6Tools.Services;
+using BV6Tools.Services.Injector;
 using BV6Tools.ViewModels.Pages;
 using BV6Tools.Views.Pages;
 using Microsoft.Extensions.DependencyInjection;
+using System.Diagnostics;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows.Interop;
 using Wpf.Ui;
 using Wpf.Ui.Appearance;
 using Wpf.Ui.Controls;
+using Wpf.Ui.Extensions;
 
 namespace BV6Tools.Views.Windows
 {
@@ -15,11 +19,16 @@ namespace BV6Tools.Views.Windows
     /// </summary>
     public partial class TrayWindow
     {
+        private readonly IContentDialogService contentDialogService;
         private readonly MenuItem stopSteamMenu;
         private INavigationWindow? navigationWindow;
 
-        public TrayWindow(ISettingsService settingsService)
+        public TrayWindow(ISettingsService settingsService, IContentDialogService contentDialogService, InjectorService injectorService)
         {
+            this.contentDialogService = contentDialogService;
+
+            injectorService.OnInjectFailed += InjectorService_OnInjectFailed;
+
             stopSteamMenu = new MenuItem { Header = "Stop Steam", Command = StopSteamCommand };
 
             DataContext = this;
@@ -79,13 +88,68 @@ namespace BV6Tools.Views.Windows
             }
         }
 
+        private async void InjectorService_OnInjectFailed(object sender, Exception ex)
+        {
+            switch (ex)
+            {
+                case IOException ioEx when ioEx.HResult == unchecked((int)0x80070522):
+                    if (Application.Current.MainWindow?.IsVisible != true)
+                    {
+                        Wpf.Ui.Controls.MessageBox messageBox = new()
+                        {
+                            Title = "Error",
+                            Content = $"Cannot inject Steam in {sender} Mode. " +
+                            Environment.NewLine +
+                            "Developer Mode is disabled, Please enable developer mode." +
+                            Environment.NewLine +
+                            "Or run BV6Tools as admin instead.",
+                            PrimaryButtonText = "Open developer settings",
+                            CloseButtonText = "Cancel"
+                        };
+
+                        if (await messageBox.ShowDialogAsync(true) != Wpf.Ui.Controls.MessageBoxResult.Primary) return;
+                    }
+                    else
+                    {
+                        var dialog = new SimpleContentDialogCreateOptions()
+                        {
+                            Title = "Error",
+                            Content = $"Cannot inject Steam in {sender} Mode. " +
+                            Environment.NewLine +
+                            "Developer Mode is disabled, Please enable developer mode." +
+                            Environment.NewLine +
+                            "Or run BV6Tools as admin instead.",
+                            PrimaryButtonText = "Open developer settings",
+                            CloseButtonText = "Cancel"
+                        };
+                        if (await contentDialogService.ShowSimpleDialogAsync(dialog) != ContentDialogResult.Primary) return;
+                    }
+                    try
+                    {
+                        Process.Start(new ProcessStartInfo
+                        {
+                            FileName = "ms-settings:developers",
+                            UseShellExecute = true
+                        });
+                    }
+                    catch (Exception e)
+                    {
+                        Wpf.Ui.Controls.MessageBox messageBox = new()
+                        {
+                            Title = "Could not open Settings window automatically",
+                            Content = e.Message,
+                        };
+                        await messageBox.ShowDialogAsync(true);
+                    }
+                    break;
+            }
+        }
+
         [RelayCommand]
         private void OpenWindow()
         {
             bool isFirstOpen = navigationWindow == null;
             navigationWindow ??= App.Services.GetRequiredService<INavigationWindow>();
-
-            System.Diagnostics.Debug.WriteLine($"NavigationWindow state: {((Window)navigationWindow).WindowState}, Visible: {((Window)navigationWindow).IsVisible}");
 
             navigationWindow.ShowWindow();
 

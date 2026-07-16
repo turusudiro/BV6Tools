@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using ProcessCommon;
+using System.Diagnostics;
 using System.IO;
 using System.Text.RegularExpressions;
 using System.Windows.Automation;
@@ -18,16 +19,18 @@ namespace GreenLumaCommon
         public const int Limit = 148;
 
         public const string Url = @"https://cs.rin.ru/forum/viewtopic.php?f=29&t=103709";
-        [GeneratedRegex(@"GreenLuma.*.files|applist|AppOwnershipTickets|EncryptedAppTickets", RegexOptions.IgnoreCase)]
-        private static partial Regex GreenLumaDirectoriesRegex { get; }
-        [GeneratedRegex(@"ach[a-z]+\.wav", RegexOptions.IgnoreCase)]
-        private static partial Regex AchievementRegex { get; }
 
         [GeneratedRegex(@"GreenLuma\w+64\.dll", RegexOptions.IgnoreCase)]
         public static partial Regex GreenLumaDLLFile64Regex { get; }
 
         [GeneratedRegex(@"GreenLuma\w+86\.dll", RegexOptions.IgnoreCase)]
         public static partial Regex GreenLumaDLLFile86Regex { get; }
+
+        [GeneratedRegex(@"ach[a-z]+\.wav", RegexOptions.IgnoreCase)]
+        private static partial Regex AchievementRegex { get; }
+
+        [GeneratedRegex(@"GreenLuma.*.files|applist|AppOwnershipTickets|EncryptedAppTickets", RegexOptions.IgnoreCase)]
+        private static partial Regex GreenLumaDirectoriesRegex { get; }
 
         [GeneratedRegex(@"injector\.exe", RegexOptions.IgnoreCase)]
         private static partial Regex InjectorExeRegex { get; }
@@ -354,11 +357,8 @@ namespace GreenLumaCommon
                 throw new ArgumentNullException(nameof(path), "Executable path cannot be empty.");
             }
 
-            var process = Process.Start(new ProcessStartInfo(path)
-            {
-                WorkingDirectory = Path.GetDirectoryName(path),
-                UseShellExecute = false,
-            })!;
+            var process = ProcessHelper.RunAsRestrictedUser(path)
+                ?? throw new InvalidOperationException("Failed to start process.");
 
             var tcs = new TaskCompletionSource<bool>();
             var errors = new List<string>();

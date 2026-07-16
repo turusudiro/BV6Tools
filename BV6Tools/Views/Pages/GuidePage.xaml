@@ -61,8 +61,8 @@
             <Run FontSize="14"
                  FontWeight="SemiBold"
                  Text="SteamTools / OpenSteamTool" />
+            <LineBreak /> Developer Mode required or run BV6Tools as admin (for creating SymLink on Steam path).
             <LineBreak />
-            Developer Mode required (for creating SymLink on Steam path).<LineBreak />
             <ui:HyperlinkButton Margin="0,4"
                                 Icon="{ui:SymbolIcon Symbol=Open24}"
                                 NavigateUri="ms-settings:developers">
@@ -139,9 +139,9 @@
                            LabelFontWeight="SemiBold"
                            Symbol="Lightbulb20"
                            SymbolFontSize="20" />
-        <ui:TextBlock FontSize="14">
+        <ui:TextBlock FontSize="14" TextWrapping="Wrap">
             - Save your changes on List, Depot, or Lua page before anything!<LineBreak />
-            - Don't launch games from Library page while using OpenSteamTool mode. If you already did, just stop and restart Steam from the Home page.</ui:TextBlock>
+            - Don't launch games from Library page while using OpenSteamTool mode. If you already did, just stop and restart Steam from the Home page or from the tray icon.</ui:TextBlock>
         <control:IconLabel Margin="0,16,0,4"
                            Foreground="{StaticResource PaletteGreenBrush}"
                            Label="Start Injecting"

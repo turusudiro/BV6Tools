@@ -81,11 +81,6 @@ public partial class MainWindowViewModel : ObservableRecipient
         }
     }
 
-    private void OnInjectorServiceFailedInject(Exception ex)
-    {
-        snackbarService.Show("Error", ex.Message, ControlAppearance.Danger, default, default);
-    }
-
     public HashSet<uint> Appids => gameService.EnabledAppids;
 
     [ObservableProperty]
@@ -183,6 +178,11 @@ public partial class MainWindowViewModel : ObservableRecipient
         IsCounterVisible = m.Value;
     }
 
+    private void OnInjectorServiceFailedInject(object sender, Exception ex)
+    {
+        snackbarService.Show("Error", ex.Message, ControlAppearance.Danger, default, default);
+    }
+
     private async void OnInjectorServiceInjected(SteamProcessData state)
     {
         switch (settingsService.Settings.OnInject)
@@ -190,13 +190,9 @@ public partial class MainWindowViewModel : ObservableRecipient
             case OnInject.None:
                 Application.Current.MainWindow?.WindowState = WindowState.Minimized;
                 break;
+
             case OnInject.Minimize:
                 Application.Current.MainWindow?.Hide();
-                break;
-            case OnInject.Exit:
-                /// ApplicationHostService already subscribed first OnInjectorServiceInjected
-                /// so cleanup already scheduled (if configured) and its fine to shutdown now.
-                Application.Current.Shutdown();
                 break;
         }
     }
