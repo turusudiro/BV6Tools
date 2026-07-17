@@ -75,12 +75,15 @@ public class ApplicationHostService(IServiceProvider serviceProvider) : IHostedS
                 var gameService = serviceProvider.GetRequiredService<GameService>();
                 var settingsService = serviceProvider.GetRequiredService<ISettingsService>();
                 var injectorManagerService = serviceProvider.GetRequiredService<InjectorManagerService>();
-                try
+                await Application.Current.Dispatcher.InvokeAsync(async () =>
                 {
-                    var args = "-silent " + string.Join(" ", settingsService.Settings.SteamArgs);
-                    await injectorManagerService.Inject(gameService.EnabledAppids, settingsService.Settings.Mode, args);
-                }
-                catch { }
+                    try
+                    {
+                        var args = "-silent " + string.Join(" ", settingsService.Settings.SteamArgs);
+                        await injectorManagerService.Inject(gameService.EnabledAppids, settingsService.Settings.Mode, args);
+                    }
+                    catch { }
+                });
             });
         }
 
