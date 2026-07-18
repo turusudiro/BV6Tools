@@ -11,6 +11,7 @@ public partial class ProgressDialog : ContentDialog
 {
     private readonly CancellationTokenSource _cts = new();
     private readonly Func<ProgressDialogArgs, Task> _work;
+    private bool _cancelled;
     private ExceptionDispatchInfo? _exception;
 
     public ProgressDialog(string title, Func<ProgressDialogArgs, Task> work)
@@ -24,24 +25,6 @@ public partial class ProgressDialog : ContentDialog
 
     public ProgressDialogArgs Progress { get; }
 
-    protected override async void OnLoaded()
-    {
-        base.OnLoaded();
-        try
-        {
-            await _work(Progress);
-        }
-        catch (OperationCanceledException) { }
-        catch (Exception ex)
-        {
-            _exception = ExceptionDispatchInfo.Capture(ex);
-        }
-        finally
-        {
-            Hide();
-        }
-    }
-
     protected override void OnButtonClick(ContentDialogButton button = ContentDialogButton.Close)
     {
         _cts.Cancel();
@@ -52,20 +35,46 @@ public partial class ProgressDialog : ContentDialog
         base.OnClosed(result);
         _exception?.Throw();
     }
+
+    protected override async void OnLoaded()
+    {
+        base.OnLoaded();
+        try
+        {
+            await _work(Progress);
+        }
+        catch (OperationCanceledException)
+        {
+            _cancelled = true;
+        }
+        catch (Exception ex)
+        {
+            _exception = ExceptionDispatchInfo.Capture(ex);
+        }
+        finally
+        {
+            Hide(_cancelled ? ContentDialogResult.Primary : ContentDialogResult.None);
+        }
+    }
 }
 
 public partial class ProgressDialogArgs(CancellationToken token) : ObservableObject
 {
-    [ObservableProperty]
-    public partial string Text { get; set; } = string.Empty;
-    [ObservableProperty]
-    public partial double Value { get; set; }
     public bool IsCancelled => Token.IsCancellationRequested;
+
     [ObservableProperty]
     public partial bool IsIndeterminate { get; set; }
+
     [ObservableProperty]
     public partial double MaxValue { get; set; }
+
+    [ObservableProperty]
+    public partial string Text { get; set; } = string.Empty;
+
     public CancellationToken Token { get; } = token;
+
+    [ObservableProperty]
+    public partial double Value { get; set; }
 }
 
 public readonly record struct ProgressInfo(
