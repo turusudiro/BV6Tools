@@ -588,6 +588,7 @@ namespace BV6Tools.ViewModels.Pages.Lua
             {
                 uint appid = uint.Parse(lua.Key);
                 ProcessLua(lua.Value, appid);
+                Messenger.Send(new LuaAddedMessage(lua.Value, appid, default));
             }
             snackbarService.Show("Success", $"Saved {luaDataByAppid.Count} lua info", ControlAppearance.Success,
                 new SymbolIcon(SymbolRegular.Checkmark24), default);
@@ -681,7 +682,7 @@ namespace BV6Tools.ViewModels.Pages.Lua
 
             dlcs.Remove(appid);
 
-            var addedMessage = new AddedMessage(appid, DLC: dlcs);
+            var addedMessage = new AddedMessage(appid, game.Name, DLC: dlcs);
             Messenger.Send(addedMessage, MessengerTokens.Dashboard);
         }
 
