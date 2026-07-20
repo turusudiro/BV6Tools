@@ -25,6 +25,7 @@ using Wpf.Ui;
 using Wpf.Ui.Abstractions.Controls;
 using Wpf.Ui.Appearance;
 using Wpf.Ui.Controls;
+using WinTask = Microsoft.Win32.TaskScheduler;
 
 namespace BV6Tools.ViewModels.Pages;
 
@@ -40,6 +41,7 @@ public partial class SettingsPageViewModel : ObservableRecipient, INavigationAwa
     private readonly ISnackbarService snackbarService;
     private Task? _initalizeTask;
 
+    private bool _runAsAdmin;
     private StartupMode _startupMode;
     private AppSettings settingsCopy;
 
@@ -65,6 +67,8 @@ public partial class SettingsPageViewModel : ObservableRecipient, INavigationAwa
 
     public string AppVersion { get; }
 
+    public bool CanRunAsAdmin => StartupMode != StartupMode.None && ProcessCommon.Elevation.IsRunningAsAdmin;
+
     [ObservableProperty]
     public partial bool GlExists { get; set; }
 
@@ -75,6 +79,12 @@ public partial class SettingsPageViewModel : ObservableRecipient, INavigationAwa
     public partial bool OpenSteamToolExists { get; set; }
 
     public ObservableCollection<ProfileDbViewModel> Profiles { get; set; }
+
+    public bool RestartAsAdminRequired { get; set; }
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SaveCommand), nameof(UndoCommand))]
+    public partial bool RunAsAdmin { get; set; }
 
     public ProfileDbViewModel SelectedProfile
     {
@@ -93,6 +103,7 @@ public partial class SettingsPageViewModel : ObservableRecipient, INavigationAwa
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SaveCommand), nameof(UndoCommand))]
+    [NotifyPropertyChangedFor(nameof(CanRunAsAdmin))]
     public partial StartupMode StartupMode { get; set; }
 
     [ObservableProperty]
@@ -325,7 +336,7 @@ public partial class SettingsPageViewModel : ObservableRecipient, INavigationAwa
         }
     }
 
-    private async Task ExtractGLWindow(string filename, string password, CancellationToken token)
+    private async Task ExtractGLWindow(string filename, string password)
     {
         while (true)
         {
@@ -333,14 +344,17 @@ public partial class SettingsPageViewModel : ObservableRecipient, INavigationAwa
             {
                 ProgressDialog progressDialog = new("Extracting", async (progress) =>
                 {
-                    await ExtractGL(progress, filename, password, token);
+                    await ExtractGL(progress, filename, password, progress.Token);
                 });
-                await contentDialogService.ShowAsync(progressDialog, token);
-                snackbarService.Show("Success",
+                var result = await contentDialogService.ShowAsync(progressDialog, default);
+                if (result != ContentDialogResult.Primary)
+                {
+                    snackbarService.Show("Success",
                     "Extracted GL Files!",
                     ControlAppearance.Success,
                     new SymbolIcon(SymbolRegular.CheckmarkCircle16),
                     default);
+                }
                 RefreshGLStatus();
                 break;
             }
@@ -352,7 +366,7 @@ public partial class SettingsPageViewModel : ObservableRecipient, INavigationAwa
                     PrimaryButtonText = "OK",
                     CloseButtonText = "Cancel"
                 };
-                var result = await contentDialogService.ShowAsync(inputDialog, token);
+                var result = await contentDialogService.ShowAsync(inputDialog, default);
                 if (result != ContentDialogResult.Primary) break;
                 password = inputDialog.InputText;
             }
@@ -369,36 +383,172 @@ public partial class SettingsPageViewModel : ObservableRecipient, INavigationAwa
         }
     }
 
+    [RelayCommand]
+    private async Task ImportFile(string file)
+    {
+        var fileDialog = new OpenFileDialog
+        {
+            Filter = "GreenLuma_XXXX_X.X.X-Steam006.zip Files|*.zip",
+            Multiselect = false
+        };
+
+        switch (file)
+        {
+            case "GL":
+                fileDialog.Title = "Import GreenLuma";
+                fileDialog.Filter = "GreenLuma_XXXX_X.X.X-Steam006.zip Files|*.zip";
+                break;
+
+            case "ST":
+                fileDialog.Title = "Import SteamTools";
+                fileDialog.Filter = "SteamTools Files|Core.dll;xinput1_4.dll;dwmapi.dll";
+                fileDialog.Multiselect = true;
+                break;
+
+            case "OST":
+                fileDialog.Title = "Import OpenSteamTool";
+                fileDialog.Filter = "OpenSteamTool-(Version)-Release.zip Files|*.zip";
+                break;
+        }
+
+        if (fileDialog.ShowDialog() != true) return;
+
+        switch (file)
+        {
+            case "GL":
+                await ExtractGLWindow(fileDialog.FileName, "cs.rin.ru");
+                break;
+
+            case "ST":
+                await ImportSteamTools(fileDialog.FileNames);
+                break;
+
+            case "OST":
+                await ImportOpenSteamTool(fileDialog.FileName);
+                break;
+        }
+    }
+
+    private async Task ImportOpenSteamTool(string file)
+    {
+        try
+        {
+            var progressDialog = new ProgressDialog("OpenSteamTool", async (progress) =>
+            {
+                Directory.CreateDirectory(AppPaths.OpenSteamToolPath);
+                using Stream stream = File.OpenRead(file);
+                var options = new ReaderOptions
+                {
+                    LeaveStreamOpen = true
+                };
+                using var archive = ArchiveFactory.OpenArchive(stream, options);
+                foreach (var entry in archive.Entries)
+                {
+                    progress.Token.ThrowIfCancellationRequested();
+
+                    if (!entry.IsDirectory && entry.Key != null && ST.OpenSteamToolDLLRegex.IsMatch(entry.Key))
+                    {
+                        var fileName = Path.GetFileName(entry.Key);
+                        progress.Text = $"Extracting {fileName}...";
+                        progress.Value++;
+
+                        using var outputStream = File.Create(Path.Combine(AppPaths.OpenSteamToolPath, fileName));
+
+                        using var entryStream = entry.OpenEntryStream();
+                        await entryStream.CopyToAsync(outputStream, progress.Token);
+                    }
+                }
+                await stream.DisposeAsync();
+                snackbarService.Show("Success", "Extracted OpenSteamTool Files!", ControlAppearance.Success, default, default);
+            });
+            await contentDialogService.ShowAsync(progressDialog, default);
+        }
+        finally
+        {
+            RefreshOpenSteamToolStatus();
+        }
+    }
+
+    private async Task ImportSteamTools(string[] files)
+    {
+        int importedCount = 0;
+        try
+        {
+            foreach (var file in files)
+            {
+                if (!ST.SteamToolsFiles.Any(x => x.IsMatch(file))) continue;
+                importedCount++;
+                string destFilePath = Path.Combine(AppPaths.STPath, Path.GetFileName(file));
+                FileSystem.Copy(file, destFilePath);
+            }
+        }
+        finally
+        {
+            if (importedCount > 0)
+            {
+                string message = importedCount == 1 ?
+                    "Imported required file" : $"Imported {importedCount} required files";
+                snackbarService.Show("Success", message, ControlAppearance.Success,
+                    new SymbolIcon(SymbolRegular.CheckmarkCircle24), default);
+            }
+            RefreshSteamToolsStatus();
+        }
+    }
+
     private Task InitializeViewModel()
     {
-        using var key = Registry.CurrentUser.OpenSubKey(RegistryKeyPath);
+        string? exePath = null;
+        string? argsValue = null;
+        bool runAsAdmin = false;
 
-        if (key?.GetValue(AppName) is not string value)
+        using (var key = Registry.CurrentUser.OpenSubKey(RegistryKeyPath))
+        {
+            if (key?.GetValue(AppName) is string regValue)
+            {
+                exePath = regValue.Split('"', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+                argsValue = regValue;
+                runAsAdmin = false;
+            }
+        }
+
+        if (exePath == null)
+        {
+            using var ts = new WinTask.TaskService();
+            var task = ts.GetTask(AppName);
+            if (task?.Definition.Actions.FirstOrDefault() is WinTask.ExecAction action)
+            {
+                exePath = action.Path;
+                argsValue = action.Arguments;
+                runAsAdmin = true;
+            }
+        }
+
+        if (exePath == null || !File.Exists(exePath))
         {
             _startupMode = StartupMode.None;
+            _runAsAdmin = false;
+        }
+        else if (!exePath.Equals(Environment.ProcessPath, StringComparison.OrdinalIgnoreCase))
+        {
+            _startupMode = StartupMode.None;
+            _runAsAdmin = false;
+        }
+        else if (argsValue != null && argsValue.Contains("--startsteam"))
+        {
+            _startupMode = StartupMode.AutoInject;
+            _runAsAdmin = runAsAdmin;
         }
         else
         {
-            var exePath = value.Split('"', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
-            if (exePath == null || !File.Exists(exePath))
-            {
-                _startupMode = StartupMode.None;
-            }
-            else if (!exePath.Equals(Environment.ProcessPath, StringComparison.OrdinalIgnoreCase))
-            {
-                _startupMode = StartupMode.None;
-            }
-            else if (value.Contains("--startsteam"))
-            {
-                _startupMode = StartupMode.AutoInject;
-            }
-            else
-            {
-                _startupMode = StartupMode.Minimized;
-            }
+            _startupMode = StartupMode.Minimized;
+            _runAsAdmin = runAsAdmin;
         }
 
         StartupMode = _startupMode;
+        RunAsAdmin = _runAsAdmin;
+
+        RestartAsAdminRequired = RunAsAdmin && !ProcessCommon.Elevation.IsRunningAsAdmin;
+        OnPropertyChanged(nameof(RestartAsAdminRequired));
 
         RefreshGLStatus();
         RefreshSteamToolsStatus();
@@ -408,7 +558,16 @@ public partial class SettingsPageViewModel : ObservableRecipient, INavigationAwa
 
     private bool IsDirty()
     {
-        return StartupMode != _startupMode || !Settings.Equals(settingsCopy);
+        var isDirty = StartupMode != _startupMode || RunAsAdmin != _runAsAdmin || !Settings.Equals(settingsCopy);
+        if (isDirty)
+        {
+            Messenger.Send(new NavigationPageBadgeMessage(nameof(SettingsPageViewModel), 1));
+        }
+        else
+        {
+            Messenger.Send(new NavigationPageBadgeMessage(nameof(SettingsPageViewModel), 0));
+        }
+        return isDirty;
     }
 
     [RelayCommand]
@@ -452,81 +611,25 @@ public partial class SettingsPageViewModel : ObservableRecipient, INavigationAwa
     }
 
     [RelayCommand]
-    private async Task OnDropGL(DragEventArgs e, CancellationToken token)
+    private async Task OnDropGL(DragEventArgs e)
     {
         if (e.Data.GetData(DataFormats.FileDrop) is not string[] files) return;
-        if (files != null && files.Length == 1) await ExtractGLWindow(files[0], "cs.rin.ru", token);
+        if (files != null && files.Length == 1) await ExtractGLWindow(files[0], "cs.rin.ru");
     }
 
     [RelayCommand]
-    private async Task OnDropOpenSteamTool(DragEventArgs e, CancellationToken token)
+    private async Task OnDropOpenSteamTool(DragEventArgs e)
     {
         if (e.Data.GetData(DataFormats.FileDrop) is not string[] files) return;
         if (files.Length != 1) return;
-        try
-        {
-            var progressDialog = new ProgressDialog("OpenSteamTool", async (progress) =>
-            {
-                Directory.CreateDirectory(AppPaths.OpenSteamToolPath);
-                using Stream stream = File.OpenRead(files[0]);
-                var options = new ReaderOptions
-                {
-                    LeaveStreamOpen = true
-                };
-                using var archive = ArchiveFactory.OpenArchive(stream, options);
-                foreach (var entry in archive.Entries)
-                {
-                    progress.Token.ThrowIfCancellationRequested();
-
-                    if (!entry.IsDirectory && entry.Key != null && ST.OpenSteamToolDLLRegex.IsMatch(entry.Key))
-                    {
-                        var fileName = Path.GetFileName(entry.Key);
-                        progress.Text = $"Extracting {fileName}...";
-                        progress.Value++;
-
-                        using var outputStream = File.Create(Path.Combine(AppPaths.OpenSteamToolPath, fileName));
-
-                        using var entryStream = entry.OpenEntryStream();
-                        await entryStream.CopyToAsync(outputStream, progress.Token);
-                    }
-                }
-                await stream.DisposeAsync();
-                snackbarService.Show("Success", "Extracted OpenSteamTool Files!", ControlAppearance.Success, default, default);
-            });
-            await contentDialogService.ShowAsync(progressDialog, default);
-        }
-        finally
-        {
-            RefreshOpenSteamToolStatus();
-        }
+        await ImportOpenSteamTool(files[0]);
     }
 
     [RelayCommand]
-    private async Task OnDropSteamTools(DragEventArgs e, CancellationToken token)
+    private async Task OnDropSteamTools(DragEventArgs e)
     {
         if (e.Data.GetData(DataFormats.FileDrop) is not string[] files) return;
-        int importedCount = 0;
-        try
-        {
-            foreach (var file in files)
-            {
-                if (!ST.SteamToolsFiles.Any(x => x.IsMatch(file))) continue;
-                importedCount++;
-                string destFilePath = Path.Combine(AppPaths.STPath, Path.GetFileName(file));
-                FileSystem.Copy(file, destFilePath);
-            }
-        }
-        finally
-        {
-            if (importedCount > 0)
-            {
-                string message = importedCount == 1 ?
-                    "Imported required file" : $"Imported {importedCount} required files";
-                snackbarService.Show("Success", message, ControlAppearance.Success,
-                    new SymbolIcon(SymbolRegular.CheckmarkCircle24), default);
-            }
-            RefreshSteamToolsStatus();
-        }
+        await ImportSteamTools(files);
     }
 
     private void OnProfileChangedMessage(object r, ProfileChangedMessage m)
@@ -637,24 +740,48 @@ public partial class SettingsPageViewModel : ObservableRecipient, INavigationAwa
     [RelayCommand(CanExecute = nameof(IsDirty))]
     private void Save()
     {
-        using var key = Registry.CurrentUser.OpenSubKey(RegistryKeyPath, writable: true);
+        string exePath = Environment.ProcessPath!;
+        string args = "--minimized";
+        if (StartupMode == StartupMode.AutoInject)
+            args += " --startsteam";
 
-        if (StartupMode != StartupMode.None)
+        if (StartupMode != _startupMode)
         {
-            string value = $"\"{Environment.ProcessPath}\" --minimized";
-            if (StartupMode == StartupMode.AutoInject)
+            // always clear the registry key and task, then re-add if startup is enabled, to avoid duplicates or conflicts
+            using (var runKey = Registry.CurrentUser.OpenSubKey(RegistryKeyPath, writable: true))
+                runKey?.DeleteValue(AppName, throwOnMissingValue: false);
+
+            using var ts = new WinTask.TaskService();
+            if (ts.GetTask(AppName) != null)
             {
-                value += " --startsteam";
+                ts.RootFolder.DeleteTask(AppName, exceptionOnNotExists: false);
             }
 
-            key?.SetValue(AppName, value);
-        }
-        else
-        {
-            key?.DeleteValue(AppName, throwOnMissingValue: false);
+            if (StartupMode != StartupMode.None)
+            {
+                if (RunAsAdmin)
+                {
+                    WinTask.TaskDefinition td = ts.NewTask();
+                    td.RegistrationInfo.Description = AppName;
+                    td.Principal.RunLevel = WinTask.TaskRunLevel.Highest;
+                    td.Principal.LogonType = WinTask.TaskLogonType.InteractiveToken;
+                    td.Triggers.Add(new WinTask.LogonTrigger());
+                    td.Actions.Add(new WinTask.ExecAction(exePath, args));
+                    td.Settings.DisallowStartIfOnBatteries = false;
+                    td.Settings.StopIfGoingOnBatteries = false;
+
+                    ts.RootFolder.RegisterTaskDefinition(AppName, td);
+                }
+                else
+                {
+                    using var runKey = Registry.CurrentUser.OpenSubKey(RegistryKeyPath, writable: true);
+                    runKey?.SetValue(AppName, $"\"{exePath}\" {args}");
+                }
+            }
         }
 
         _startupMode = StartupMode;
+        _runAsAdmin = RunAsAdmin;
 
         if (!Settings.Equals(settingsCopy))
         {
@@ -709,6 +836,7 @@ public partial class SettingsPageViewModel : ObservableRecipient, INavigationAwa
         }
 
         StartupMode = _startupMode;
+        RunAsAdmin = _runAsAdmin;
         Settings.OnInject = settingsCopy.OnInject;
         Settings.CurrentTheme = settingsCopy.CurrentTheme;
         Settings.CloseToTray = settingsCopy.CloseToTray;
