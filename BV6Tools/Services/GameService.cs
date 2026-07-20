@@ -314,7 +314,7 @@ public partial class GameService : ObservableRecipient
             }
 
             db.Commit();
-
+            AppidsDb = [.. EnabledAppids];
             foreach (var id in dirtySnapshot)
             {
                 if (Apps.TryGetValue(id, out var app))
