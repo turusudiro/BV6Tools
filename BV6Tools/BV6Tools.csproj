@@ -38,7 +38,11 @@
 	<Resource Include="Assets\**\*.png;Assets\**\*.ico" />
     <Content Include="bv6tools-icon.ico" />
   </ItemGroup>
-
+	
+  <ItemGroup>
+    <EmbeddedResource Include="Scripts\**\*.bat" />
+  </ItemGroup>
+	
   <ItemGroup>
     <Compile Update="Properties\Settings.Designer.cs">
       <DesignTimeSharedInput>True</DesignTimeSharedInput>

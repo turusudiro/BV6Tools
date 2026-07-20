@@ -22,6 +22,7 @@ public class ApplicationHostService(IServiceProvider serviceProvider) : IHostedS
     /// <param name="cancellationToken">Indicates that the start process has been aborted.</param>
     public async Task StartAsync(CancellationToken cancellationToken)
     {
+        await UninstallerCommon.Uninstaller.EnsureUninstallerExists(cancellationToken);
         await HandleActivationAsync();
     }
 
