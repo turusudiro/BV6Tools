@@ -1,4 +1,4 @@
-name: BV6Tools Release
+name: Release
 on:
   push:
     tags:
@@ -61,8 +61,9 @@ jobs:
           tag-prefix: 'v'
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
+          generate_release_notes: true
           files: ./publish/BV6Tools-Release.zip
           body: |
             ## Installation
