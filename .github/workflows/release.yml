@@ -2,25 +2,116 @@ name: Release
 on:
   push:
     tags:
-      - '*'
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      manual_version:
+        description: 'Release version'
+        required: true
+      target_commit:
+        description: 'Commit SHA to release from (leave empty for latest on main)'
+        required: false
+        default: ''
+
 permissions:
   contents: write
+
+concurrency:
+  group: bv6tools-release
+  cancel-in-progress: false
+
 jobs:
-  build:
-    runs-on: windows-latest
+  build-and-release:
+    runs-on: [self-hosted]
+    timeout-minutes: 30
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.target_commit != '' && inputs.target_commit || github.ref }}
+
+      - name: Extract Version & Determine Commit
+        id: get_version
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const eventName = context.eventName;
+            let rawVersion = '';
+            let commitSha = context.sha; // Default to current context SHA
+
+            if (eventName === 'workflow_dispatch') {
+              rawVersion = context.payload.inputs.manual_version;
+              const targetInput = context.payload.inputs.target_commit;
+              if (targetInput && targetInput.trim() !== '') {
+                commitSha = targetInput.trim();
+                console.log(`Using target commit: ${commitSha}`);
+              } else {
+                console.log(`Using latest commit from main: ${commitSha}`);
+              }
+            } else {
+              rawVersion = context.ref.replace('refs/tags/', '');
+            }
+
+            const cleanVersion = rawVersion.replace(/^v/, '');
+            const tagName = 'v' + cleanVersion;
+
+            core.setOutput('version', cleanVersion);
+            core.setOutput('tag_name', tagName);
+            core.setOutput('commit_sha', commitSha);
+
+      - name: Check Tag Existence
+        id: check_tag
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const tagName = '${{ steps.get_version.outputs.tag_name }}';
+            try {
+              await github.rest.git.getRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: `tags/${tagName}`
+              });
+              core.setOutput('exists', 'true');
+            } catch (error) {
+              if (error.status === 404) {
+                core.setOutput('exists', 'false');
+              } else {
+                throw error;
+              }
+            }
+
+      - name: Create Tag
+        if: steps.check_tag.outputs.exists != 'true' && github.event_name == 'workflow_dispatch'
+        uses: actions/github-script@v9
+        with:
+          # PAT required here: creating a ref against an arbitrary target_commit
+          # (not the checked-out HEAD) fails under GITHUB_TOKEN's permissions.
+          github-token: ${{ secrets.PAT }}
+          script: |
+            const tagName = '${{ steps.get_version.outputs.tag_name }}';
+            const commitSha = '${{ steps.get_version.outputs.commit_sha }}';
+
+            try {
+              await github.rest.git.createRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: `refs/tags/${tagName}`,
+                sha: commitSha
+              });
+              console.log(`Tag ${tagName} created successfully at ${commitSha}.`);
+            } catch (error) {
+              if (error.status === 422) {
+                console.log(`Tag ${tagName} already exists. Skipping creation.`);
+              } else {
+                throw error;
+              }
+            }
 
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
-
-      - name: Restore Dependencies
-        run: dotnet restore BV6Tools/BV6Tools.csproj
 
       - name: Publish WPF App
         run: >
@@ -28,48 +119,81 @@ jobs:
           --configuration Release
           --runtime win-x64
           --framework net10.0-windows10.0.22621.0
+          -p:EnableWindowsTargeting=true
           -p:PublishSingleFile=true
           -p:SelfContained=true
+          -p:Version=${{ steps.get_version.outputs.version }}
+          -p:AssemblyVersion=${{ steps.get_version.outputs.version }}
+          -p:FileVersion=${{ steps.get_version.outputs.version }}
           -o ./publish/BV6Tools
 
       - name: Cleanup Unwanted Files
-        run: Get-ChildItem ./publish/BV6Tools -Include *.pdb, *.config, *.xml -Recurse | Remove-Item -Force -ErrorAction SilentlyContinue
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
 
-      - name: Create Release Archive
+            function cleanDir(dir) {
+              if (!fs.existsSync(dir)) return;
+              const entries = fs.readdirSync(dir, { withFileTypes: true });
+              for (const entry of entries) {
+                const fullPath = path.join(dir, entry.name);
+                if (entry.isDirectory()) {
+                  cleanDir(fullPath);
+                } else {
+                  const ext = path.extname(entry.name).toLowerCase();
+                  if (['.pdb', '.config', '.xml'].includes(ext)) {
+                    fs.unlinkSync(fullPath);
+                  }
+                }
+              }
+            }
+
+            cleanDir('./publish/BV6Tools');
+
+      - name: Prepare Dependencies (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
         run: |
-          Compress-Archive -Path "./publish/BV6Tools" -DestinationPath ./publish/BV6Tools-Release.zip -Force
-          Remove-Item "./publish/BV6Tools" -Recurse -Force
+          if ! command -v zip >/dev/null 2>&1; then
+            echo "zip not found, installing..."
+            sudo apt-get update && sudo apt-get install -y zip
+          else
+            echo "zip already installed, skipping."
+          fi
 
-      - name: Upload Build Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: BV6Tools-Release
-          path: ./publish/BV6Tools-Release.zip
-          retention-days: 7
+      - name: Create Release Archive (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          Compress-Archive -Path './publish/BV6Tools' -DestinationPath './publish/BV6Tools-Release.zip' -Force
+          Remove-Item -Recurse -Force './publish/BV6Tools'
+ 
+      - name: Create Release Archive (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          cd ./publish
+          zip -r BV6Tools-Release.zip BV6Tools
+          rm -rf BV6Tools
 
-      - name: Generate Changelog
+      - name: Create changelog text
         id: changelog
-        uses: TriPSs/conventional-changelog-action@v5
+        uses: loopwerk/tag-changelog@v1
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          output-file: "false"
-          skip-version-file: true
-          skip-commit: true
-          skip-tag: true
-          skip-on-empty: false
-          skip-git-pull: true
-          tag-prefix: 'v'
+          token: ${{ secrets.GITHUB_TOKEN }}
+          exclude_types: other
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
-          generate_release_notes: true
+          tag_name: ${{ steps.get_version.outputs.tag_name }}
           files: ./publish/BV6Tools-Release.zip
           body: |
-            ## Installation
+            # Installation
             1. Download `BV6Tools-Release.zip`
             2. Extract anywhere
             3. Run `BV6Tools.exe`
 
-            ## What's Changed
-            ${{ steps.changelog.outputs.clean_changelog }}
+            # What's Changed
+            ${{ steps.changelog.outputs.changes }}
