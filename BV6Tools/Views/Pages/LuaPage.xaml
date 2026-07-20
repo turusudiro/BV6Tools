@@ -9,6 +9,7 @@
       xmlns:local="clr-namespace:BV6Tools.Views.Pages"
       xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
       xmlns:model="clr-namespace:BV6Tools.Models"
+      xmlns:pc="clr-namespace:ProcessCommon"
       xmlns:sys="clr-namespace:System;assembly=mscorlib"
       xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
       xmlns:vm="clr-namespace:BV6Tools.ViewModels.Pages.Lua"
@@ -100,13 +101,20 @@
             </StackPanel>
             <StackPanel DockPanel.Dock="Top">
                 <DockPanel Margin="0,0,0,8">
-                    <ui:Button VerticalAlignment="Stretch"
+                    <ui:Button Margin="8,0,0,0"
+                               VerticalAlignment="Stretch"
                                Command="{Binding ViewModel.DownloadManifestCommand}"
                                CommandParameter="{Binding ElementName=AddAppIdNumBox}"
                                Content="Download Manifest"
                                DockPanel.Dock="Right"
                                Icon="{ui:SymbolIcon Symbol=CloudArrowDown16,
                                                     FontSize=20}" />
+                    <ui:Button Command="{Binding ViewModel.ImportLuaZipCommand}"
+                               DockPanel.Dock="Right">
+                        <control:IconLabel Label="Import .zip"
+                                           Symbol="Archive24"
+                                           SymbolFontSize="20" />
+                    </ui:Button>
                     <ui:NumberBox x:Name="AddAppIdNumBox"
                                   Width="150"
                                   ClearButtonEnabled="False"
@@ -119,7 +127,26 @@
                                CommandParameter="{Binding ElementName=AddAppIdNumBox}"
                                Icon="{ui:SymbolIcon Symbol=Add24}" />
                 </DockPanel>
-                <ui:InfoBar Title="Tip"
+                <ui:TextBlock Margin="0,0,0,8"
+                              Appearance="Disabled"
+                              Text="Running as admin, drag and drop is disabled. Use import instead">
+                    <ui:TextBlock.Style>
+                        <Style TargetType="ui:TextBlock">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <MultiDataTrigger>
+                                    <MultiDataTrigger.Conditions>
+                                        <Condition Binding="{Binding Source={x:Static pc:Elevation.IsRunningAsAdmin}}" Value="True" />
+                                        <Condition Binding="{Binding ElementName=TipInfoBar, Path=IsOpen}" Value="True" />
+                                    </MultiDataTrigger.Conditions>
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </MultiDataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ui:TextBlock.Style>
+                </ui:TextBlock>
+                <ui:InfoBar x:Name="TipInfoBar"
+                            Title="Tip"
                             Margin="0,0,0,8"
                             IsOpen="True"
                             Message="You can drop a .zip file containing lua anywhere on this page." />

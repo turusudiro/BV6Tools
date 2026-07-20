@@ -236,6 +236,20 @@ namespace BV6Tools.ViewModels.Pages.Lua
             }, DispatcherPriority.Send);
         }
 
+        [RelayCommand]
+        private async Task ImportLuaZip()
+        {
+            var fileDialog = new Microsoft.Win32.OpenFileDialog
+            {
+                Filter = "Zip files|*.zip",
+                Multiselect = true
+            };
+
+            if (fileDialog.ShowDialog() != true) return;
+
+            await LuaZipDropCommand.ExecuteAsync(fileDialog.FileNames);
+        }
+
         private async Task InitializeViewModel()
         {
             var luaDb = databaseService.Database.LoadAll<LuaDb>();
