@@ -11,10 +11,24 @@ public class HttpClientService(IHttpClientFactory httpClientFactory)
         return await httpClient.GetByteArrayAsync(url, token);
     }
 
-    public async Task<byte[]> DownloadDataAsync(HttpRequestMessage httpRequestMessage, CancellationToken token = default)
+    public async Task<byte[]> DownloadDataAsync(HttpRequestMessage request, TimeSpan connectTimeout, CancellationToken token = default)
     {
-        var response = await httpClient.SendAsync(httpRequestMessage, token);
+        using var connectCts = CancellationTokenSource.CreateLinkedTokenSource(token);
+        connectCts.CancelAfter(connectTimeout);
+
+        HttpResponseMessage response;
+        try
+        {
+            // Only waits for headers to start arriving, not the full body
+            response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, connectCts.Token);
+        }
+        catch (OperationCanceledException) when (!token.IsCancellationRequested)
+        {
+            throw new TimeoutException($"Url didn't respond within {connectTimeout.TotalSeconds}s");
+        }
+
         response.EnsureSuccessStatusCode();
+
         return await response.Content.ReadAsByteArrayAsync(token);
     }
 

@@ -3,6 +3,7 @@ using BV6Tools.Services.ManifestDownloader.Models;
 using BV6Tools.Views.Dialogs;
 using STCommon;
 using SteamKit2;
+using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
 using System.Text;
@@ -17,6 +18,20 @@ namespace BV6Tools.Services.ManifestDownloader
     {
         private const string githubUserContentUrl = "https://raw.githubusercontent.com/";
         private readonly HttpClientService httpClientService = httpClientService;
+        private record MirrorSource(string Name, string UrlTemplate);
+
+        private readonly Dictionary<string, double> mirrorPriority = [];
+
+        // Some of them are provided from https://githubproxy.net/services/
+        private readonly MirrorSource[] mirrors =
+        [
+            new("statically", "https://cdn.statically.io/gh/{0}@{1}/{2}"),
+            new("gh-proxy",   $"https://gh-proxy.org/{githubUserContentUrl}{{0}}/{{1}}/{{2}}"),
+            new("jsdelivr",   "https://cdn.jsdelivr.net/gh/{0}@{1}/{2}"),
+            new("ghfast",     $"https://ghfast.top/{githubUserContentUrl}{{0}}/{{1}}/{{2}}"),
+            new("jsdmirror",  "https://cdn.jsdmirror.com/gh/{0}@{1}/{2}"),
+            new("github",     "https://raw.githubusercontent.com/{0}/{1}/{2}"),
+        ];
 
         private readonly string[] repos =
         [
@@ -32,40 +47,47 @@ namespace BV6Tools.Services.ManifestDownloader
 
         public async Task<byte[]?> DownloadFileAsync(string repo, string sha, string path, CancellationToken token = default)
         {
-            // Some of them are provided from https://githubproxy.net/services/
-            string[] mirrors =
-            [
-            $"https://cdn.statically.io/gh/{repo}@{sha}/{path}",
-            $"https://gh-proxy.org/{githubUserContentUrl}{repo}/{sha}/{path}",
-            $"https://cdn.jsdelivr.net/gh/{repo}@{sha}/{path}",
-            $"https://ghfast.top/{githubUserContentUrl}{repo}/{sha}/{path}",
-            $"https://cdn.jsdmirror.com/gh/{repo}@{sha}/{path}",
-            $"https://raw.githubusercontent.com/{repo}/{sha}/{path}",
-            ];
-
             for (var retry = 3; retry > 0; retry--)
             {
-                foreach (var url in mirrors)
+                var sortedMirrors = mirrors.OrderBy(m => mirrorPriority.GetValueOrDefault(m.Name, 0));
+
+                foreach (var mirror in sortedMirrors)
                 {
+                    var url = string.Format(mirror.UrlTemplate, repo, sha, path);
+                    var stopwatch = Stopwatch.StartNew();
                     try
                     {
                         var request = new HttpRequestMessage(HttpMethod.Get, url);
                         request.Headers.UserAgent.ParseAdd(
                             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36");
                         request.Headers.Accept.ParseAdd("*/*");
-                        var result = await httpClientService.DownloadDataAsync(request, token);
+                        var result = await httpClientService.DownloadDataAsync(request, TimeSpan.FromSeconds(5), token);
 
                         if (result != null && result.Length > 0)
                         {
                             var contentStart = Encoding.UTF8.GetString([.. result.Take(Math.Min(100, result.Length))]);
-                            if (!contentStart.TrimStart().StartsWith("<!DOCTYPE", StringComparison.OrdinalIgnoreCase) &&
-                                !contentStart.TrimStart().StartsWith("<html", StringComparison.OrdinalIgnoreCase))
+                            var isNotHtml = !contentStart.TrimStart().StartsWith("<!DOCTYPE", StringComparison.OrdinalIgnoreCase) &&
+                                           !contentStart.TrimStart().StartsWith("<html", StringComparison.OrdinalIgnoreCase);
+                            if (isNotHtml)
                             {
+                                mirrorPriority[mirror.Name] = stopwatch.ElapsedMilliseconds;
                                 return result;
                             }
                         }
+
+                        // response is not expected, make it less priority
+                        mirrorPriority[mirror.Name] = mirrorPriority.GetValueOrDefault(mirror.Name, 0) + 3000;
                     }
-                    catch (HttpRequestException) { }
+                    catch (TimeoutException)
+                    {
+                        // Never even responded, worse than a normal failure
+                        mirrorPriority[mirror.Name] = mirrorPriority.GetValueOrDefault(mirror.Name, 0) + 5000;
+                    }
+                    catch (HttpRequestException)
+                    {
+                        // Failed or timed out, make it less priority
+                        mirrorPriority[mirror.Name] = mirrorPriority.GetValueOrDefault(mirror.Name, 0) + 3000;
+                    }
                 }
 
                 if (retry > 1)
