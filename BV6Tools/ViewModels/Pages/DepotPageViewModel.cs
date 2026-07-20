@@ -4,6 +4,7 @@ using BV6Tools.Messages;
 using BV6Tools.Models;
 using BV6Tools.Services;
 using BV6Tools.Services.Database;
+using BV6Tools.Services.Database.Extensions;
 using BV6Tools.Services.Database.Models;
 using BV6Tools.Services.Injector;
 using BV6Tools.Services.Steam;
@@ -87,10 +88,10 @@ public partial class DepotPageViewModel : AppManagerPageViewModel, INavigationAw
         base.OnActivated();
         Messenger.Register<NotificationCenterMessage, string>(this,
             MessengerTokens.Depot, async (r, m) =>
-        {
+            {
                 await Save();
                 m.Reply(true);
-        });
+            });
         Messenger.Register<LuaAddedMessage>(this, async (s, m) =>
         {
             await ProcessLua(m.LuaData, m.AppId, m.Name);
@@ -290,6 +291,24 @@ public partial class DepotPageViewModel : AppManagerPageViewModel, INavigationAw
         {
             game = gameService.GetOrAddApp(appid, name, isEnabled: true, caches: caches);
             game.Name ??= name;
+
+            if (!IsInitialized)
+            {
+                var db = databaseService.Database.LoadByKeys<GameDb>(
+                ManagerType, appid, settingsService.Settings.ActiveProfileId);
+
+                if (db != null)
+                {
+                    var dbItems = databaseService.Database.Load<ItemDb>(
+                        "WHERE ParentAppID = ? AND ProfileID = ? AND ManagerType = ?",
+                        appid, settingsService.Settings.ActiveProfileId, ManagerType);
+
+                    caches = databaseService.GetAppsCache(dbItems.Select(x => x.AppID).Union(appids));
+
+                    await InitializeApp(db, caches, new Dictionary<uint, List<ItemDb>> { [appid] = [.. dbItems] });
+                }
+            }
+
             Games[appid] = game;
         }
 

@@ -23,15 +23,15 @@ namespace BV6Tools.ViewModels.Pages.Shared
     {
         protected readonly DatabaseService databaseService;
 
+        protected readonly HashSetNotify<uint> dirtyGames = [];
         protected readonly GameService gameService;
 
+        protected readonly ISettingsService settingsService;
         protected Task? _initializeTask;
 
         private readonly Dictionary<AppViewModel, NotifyCollectionChangedEventHandler> _handlers = [];
         private readonly HashSet<AppViewModel> _pendingGames = [];
         private readonly IContentDialogService contentDialogService;
-        protected readonly HashSetNotify<uint> dirtyGames = [];
-        protected readonly ISettingsService settingsService;
         private readonly ISnackbarService snackbarService;
         private readonly Dictionary<uint, AppViewModel.Snapshot> snapshot = [];
         private EventHandler? _searchDebounceHandler;
@@ -60,12 +60,6 @@ namespace BV6Tools.ViewModels.Pages.Shared
             dirtyGames.OnDirtyChanged += OnDirtyChanged;
 
             LoadDB();
-        }
-
-        protected virtual void OnDirtyChanged()
-        {
-            SaveCommand.NotifyCanExecuteChanged();
-            UndoCommand.NotifyCanExecuteChanged();
         }
 
         [ObservableProperty]
@@ -116,6 +110,60 @@ namespace BV6Tools.ViewModels.Pages.Shared
 
         protected abstract bool? GetSelectAllValue(AppViewModel app);
 
+        protected async Task InitializeApp(GameDb appDb, Dictionary<uint, ApplistCacheDb> caches, Dictionary<uint, List<ItemDb>> ItemsByAppId)
+        {
+            if (snapshot.ContainsKey(appDb.AppID)) return;
+            string? name = caches.TryGetValue(appDb.AppID, out var cache) ? cache.Name : null;
+            uint appid = appDb.AppID;
+            bool isEnabled = gameService.AppidsDb.Contains(appDb.AppID);
+
+            List<AppViewModel.AppSnapshot> itemsSnapshot = [];
+
+            ProgressText = $"Processing {appid}";
+            CurrentProgress++;
+
+            if (ItemsByAppId.TryGetValue(appDb.AppID, out var itemsDb))
+            {
+                foreach (var itemDb in itemsDb)
+                {
+                    string? itemName = caches.TryGetValue(itemDb.AppID, out cache) ? cache.Name : null;
+                    itemsSnapshot.Add(new AppViewModel.AppSnapshot(itemDb.AppID, itemName, gameService.AppidsDb.Contains(itemDb.AppID)));
+                }
+            }
+
+            var snap = new AppViewModel.Snapshot(appDb.AppID, name, gameService.AppidsDb.Contains(appDb.AppID), [.. itemsSnapshot]);
+            snapshot[appid] = snap;
+
+            var app = gameService.GetOrAddApp(appid, out bool exists, name, isEnabled, caches: caches);
+
+            SetItemsView(app);
+            gameService.Subscribe(app.AppId, OnAppChanged);
+
+            var childCollection = GetAppItemsCollection(app);
+
+            int i = 0;
+
+            foreach (var item in itemsSnapshot)
+            {
+                childCollection[item.AppId] = gameService.GetOrAddApp(item.AppId, out bool itemExists, item.Name, item.IsEnabled, appid, caches);
+                if (itemExists) exists = true;
+                if (++i % 200 == 0)
+                {
+                    await Dispatcher.Yield();
+                }
+            }
+            RefreshSelectAll(app);
+
+            SubscribeItemsCollection(app, childCollection);
+
+            if (exists && !app.EqualsSnapshot(snap, childCollection))
+            {
+                dirtyGames.Add(appid);
+            }
+
+            Games[app.AppId] = app;
+        }
+
         protected virtual async Task InitializeViewModel()
         {
             IsProgressBarVisible = true;
@@ -150,11 +198,6 @@ namespace BV6Tools.ViewModels.Pages.Shared
             }
         }
 
-        private bool IsDirty()
-        {
-            return dirtyGames.Count > 0;
-        }
-
         protected override void OnActivated()
         {
             Messenger.Register<SaveMessage>(this, OnSaveMessage);
@@ -184,6 +227,12 @@ namespace BV6Tools.ViewModels.Pages.Shared
             }
         }
 
+        protected virtual void OnDirtyChanged()
+        {
+            SaveCommand.NotifyCanExecuteChanged();
+            UndoCommand.NotifyCanExecuteChanged();
+        }
+
         protected virtual void OnFirstItemLoaded()
         {
         }
@@ -207,7 +256,6 @@ namespace BV6Tools.ViewModels.Pages.Shared
                     }
 
                     gameService.Unsubscribe(game.AppId, OnAppChanged);
-
                 }
             }
 
@@ -311,296 +359,6 @@ namespace BV6Tools.ViewModels.Pages.Shared
             items.Remove(item);
 
             gameService.ReleaseApp(item.AppId, parent.AppId);
-        }
-
-        [RelayCommand]
-        protected void OnSelectAllChecked(object parameter)
-        {
-            if (parameter is not AppViewModel game) return;
-
-            var value = GetSelectAllValue(game) != true;
-
-            foreach (var item in GetItemsView(game)?.Cast<AppViewModel>() ?? [])
-            {
-                item.IsEnabled = value;
-            }
-        }
-
-        [RelayCommand]
-        protected void OnTextSearchItemChanged(object parameter)
-        {
-            if (parameter is not object[] param) return;
-            if (param[0] is not AppViewModel app) return;
-            if (param[1] is not string query) return;
-
-            DebounceSearch(() =>
-            {
-                var childView = GetItemsView(app);
-                if (childView == null) return;
-
-                childView.Filter = o => o is AppViewModel item && FilterApp(item, query);
-                childView.Refresh();
-                RefreshSelectAll(app);
-            });
-        }
-
-        [RelayCommand(CanExecute = nameof(IsDirty))]
-        protected virtual async Task Undo()
-        {
-            Games.CollectionChanged -= OnGamesCollectionChanged;
-            dirtyGames.Clear();
-
-            Dictionary<uint, List<uint>> appidsToRelease = [];
-
-            for (int i = Games.Count - 1; i >= 0; i--)
-            {
-                var app = Games[i];
-                var itemsCollection = GetAppItemsCollection(app);
-
-                gameService.Unsubscribe(app.AppId, OnAppChanged);
-
-                if (snapshot.TryGetValue(app.AppId, out var snap))
-                {
-                    app.Name = snap.Name;
-                    app.IsEnabled = snap.IsEnabled;
-                    RestoreChildren(itemsCollection, snap.Items, app.AppId);
-                    RefreshSelectAll(app);
-                    gameService.Subscribe(app.AppId, OnAppChanged);
-                }
-                else
-                {
-                    Games.RemoveAt(i);
-                    UnsubscribeItemsCollection(app, itemsCollection);
-                    appidsToRelease.TryAdd(app.AppId, [.. itemsCollection.Select(x => x.AppId)]);
-                }
-            }
-
-            foreach (var backup in snapshot.Values.Where(b => !Games.ContainsKey(b.AppId)))
-            {
-                var app = gameService.GetOrAddApp(backup.AppId, backup.Name, backup.IsEnabled);
-                app.Name = backup.Name;
-                app.IsEnabled = backup.IsEnabled;
-
-                var itemsCollection = GetAppItemsCollection(app);
-                SubscribeItemsCollection(app, itemsCollection);
-
-                SetItemsView(app);
-                RestoreChildren(itemsCollection, backup.Items, backup.AppId);
-                RefreshSelectAll(app);
-
-                Games[backup.AppId] = app;
-                gameService.Subscribe(app.AppId, OnAppChanged);
-            }
-            gameService.ReleaseApp(appidsToRelease);
-
-            await Dispatcher.Yield();
-
-            Games.CollectionChanged += OnGamesCollectionChanged;
-
-            GamesView.Refresh();
-        }
-
-        protected abstract void RefreshSelectAll(AppViewModel app);
-
-        [RelayCommand(CanExecute = nameof(IsDirty))]
-        protected virtual async Task Save()
-        {
-            Messenger.Send(new SaveMessage());
-        }
-
-        protected abstract void SetItemsView(AppViewModel app);
-
-        protected abstract void SetSelectAllValue(AppViewModel app, bool? value);
-
-        private static bool FilterApp(AppViewModel app, string query)
-        {
-            if (string.IsNullOrWhiteSpace(query)) return true;
-
-            var q = query.Trim().ToLower();
-            return (app.Name?.Contains(q, StringComparison.CurrentCultureIgnoreCase) ?? false) || app.AppId.ToString().Contains(q);
-        }
-
-        private void DebounceSearch(Action action)
-        {
-            _searchDebounceTimer ??= new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
-            _searchDebounceTimer.Stop();
-
-            if (_searchDebounceHandler != null)
-                _searchDebounceTimer.Tick -= _searchDebounceHandler;
-
-            _searchDebounceHandler = (_, _) =>
-            {
-                _searchDebounceTimer.Stop();
-                action();
-            };
-
-            _searchDebounceTimer.Tick += _searchDebounceHandler;
-            _searchDebounceTimer.Start();
-        }
-
-        async Task InitializeApp(GameDb appDb, Dictionary<uint, ApplistCacheDb> caches, Dictionary<uint, List<ItemDb>> ItemsByAppId)
-        {
-            string? name = caches.TryGetValue(appDb.AppID, out var cache) ? cache.Name : null;
-            uint appid = appDb.AppID;
-            bool isEnabled = gameService.AppidsDb.Contains(appDb.AppID);
-
-            List<AppViewModel.AppSnapshot> itemsSnapshot = [];
-
-            ProgressText = $"Processing {appid}";
-            CurrentProgress++;
-
-            if (ItemsByAppId.TryGetValue(appDb.AppID, out var itemsDb))
-            {
-                foreach (var itemDb in itemsDb)
-                {
-                    string? itemName = caches.TryGetValue(itemDb.AppID, out cache) ? cache.Name : null;
-                    itemsSnapshot.Add(new AppViewModel.AppSnapshot(itemDb.AppID, itemName, gameService.AppidsDb.Contains(itemDb.AppID)));
-                }
-            }
-
-            var snap = new AppViewModel.Snapshot(appDb.AppID, name, gameService.AppidsDb.Contains(appDb.AppID), [.. itemsSnapshot]);
-            snapshot[appid] = snap;
-
-            var app = gameService.GetOrAddApp(appid, out bool exists, name, isEnabled, caches: caches);
-
-            Games[app.AppId] = app;
-
-            SetItemsView(app);
-            gameService.Subscribe(app.AppId, OnAppChanged);
-
-            var childCollection = GetAppItemsCollection(app);
-
-            int i = 0;
-
-            foreach (var item in itemsSnapshot)
-            {
-                childCollection[item.AppId] = gameService.GetOrAddApp(item.AppId, out bool itemExists, item.Name, item.IsEnabled, appid, caches);
-                if (itemExists) exists = true;
-                if (++i % 200 == 0)
-                {
-                    await Dispatcher.Yield();
-                }
-            }
-            RefreshSelectAll(app);
-
-            SubscribeItemsCollection(app, childCollection);
-
-            if (exists && !app.EqualsSnapshot(snap, childCollection))
-            {
-                dirtyGames.Add(appid);
-            }
-        }
-
-        [MemberNotNull(nameof(gameDbs), nameof(itemDbs))]
-        private void LoadDB()
-        {
-            gameDbs ??= [.. databaseService.Database.Load<GameDb>(
-                "WHERE ProfileID = ? AND ManagerType = ?", null, settingsService.Settings.ActiveProfileId, ManagerType)];
-
-            itemDbs ??= [.. databaseService.Database.Load<ItemDb>(
-                "WHERE ProfileID = ? AND ManagerType = ?", null, settingsService.Settings.ActiveProfileId, ManagerType)];
-        }
-
-        [RelayCommand]
-        private async Task OnEditAsync(object parameter)
-        {
-            if (parameter is not AppViewModel app) return;
-            var dataDialog = new EditDialogViewModel
-            {
-                Title = "Edit",
-                PlaceHolder = "Game name",
-                Name = app.Name,
-                AppId = app.AppId
-            };
-            var dialog = new EditDialog(dataDialog);
-            var result = await contentDialogService.ShowAsync(dialog, CancellationToken.None);
-            if (!result.HasFlag(ContentDialogResult.Primary))
-                return;
-
-            var newAppId = dataDialog.AppId ?? 0;
-            var enable = app.IsEnabled;
-            string? name = string.IsNullOrWhiteSpace(dataDialog.Name) ? null : dataDialog.Name;
-
-            if (app.AppId != newAppId)
-            {
-                var childCollection = GetAppItemsCollection(app);
-                Games.Remove(app);
-
-                if (!Games.TryGetValue(newAppId, out app))
-                {
-                    app = gameService.GetOrAddApp(newAppId, name, enable);
-                    SetItemsView(app);
-                    Games[app.AppId] = app;
-                }
-
-                foreach (var item in childCollection.ToList())
-                {
-                    if (!childCollection.ContainsKey(item.AppId))
-                    {
-                        var child = gameService.GetOrAddApp(item.AppId, item.Name, item.IsEnabled);
-                        childCollection[child.AppId] = child;
-                    }
-                }
-            }
-
-            app.Name = name;
-
-            GamesView.Refresh();
-        }
-
-        [RelayCommand]
-        private async Task OnEditItemAsync(object parameter)
-        {
-            if (parameter is not object[] param) return;
-            if (param[0] is not AppViewModel item) return;
-            if (param[1] is not AppViewModel app) return;
-
-            var dataDialog = new EditDialogViewModel
-            {
-                ParentEdit = true,
-                Title = "Edit App",
-                PlaceHolder = "Name",
-                Name = item.Name,
-                AppId = item.AppId,
-                SelectedGame = app,
-                Games = Games.AsEnumerable()
-            };
-            var dialog = new EditDialog(dataDialog);
-            var result = await contentDialogService.ShowAsync(dialog, CancellationToken.None);
-            if (result != ContentDialogResult.Primary)
-                return;
-
-            var newAppId = dataDialog.AppId ?? item.AppId;
-            string? name = string.IsNullOrWhiteSpace(dataDialog.Name) ? null : dataDialog.Name;
-
-            if (item.AppId != newAppId)
-            {
-                var items = GetAppItemsCollection(app);
-                items.Remove(item);
-                gameService.ReleaseApp(item.AppId, app.AppId);
-
-                item = gameService.GetOrAddApp(newAppId, name, item.IsEnabled);
-
-                item.Name = name;
-                items[newAppId] = item;
-            }
-            else
-            {
-                item.Name = name;
-            }
-
-            if (dataDialog.SelectedGame.AppId != app.AppId)
-            {
-                var items = GetAppItemsCollection(app);
-                items.Remove(item);
-
-                items = GetAppItemsCollection(dataDialog.SelectedGame);
-
-                if (!items.ContainsKey(item.AppId))
-                {
-                    items[item.AppId] = gameService.GetOrAddApp(item.AppId, item.Name, item.IsEnabled, dataDialog.SelectedGame.AppId);
-                }
-            }
         }
 
         protected virtual void OnSaveMessage(object r, SaveMessage m)
@@ -728,6 +486,248 @@ namespace BV6Tools.ViewModels.Pages.Shared
 
                 snackbarService.Show("Error", ex.Message, ControlAppearance.Danger,
                     new SymbolIcon(SymbolRegular.ErrorCircle24), default);
+            }
+        }
+
+        [RelayCommand]
+        protected void OnSelectAllChecked(object parameter)
+        {
+            if (parameter is not AppViewModel game) return;
+
+            var value = GetSelectAllValue(game) != true;
+
+            foreach (var item in GetItemsView(game)?.Cast<AppViewModel>() ?? [])
+            {
+                item.IsEnabled = value;
+            }
+        }
+
+        [RelayCommand]
+        protected void OnTextSearchItemChanged(object parameter)
+        {
+            if (parameter is not object[] param) return;
+            if (param[0] is not AppViewModel app) return;
+            if (param[1] is not string query) return;
+
+            DebounceSearch(() =>
+            {
+                var childView = GetItemsView(app);
+                if (childView == null) return;
+
+                childView.Filter = o => o is AppViewModel item && FilterApp(item, query);
+                childView.Refresh();
+                RefreshSelectAll(app);
+            });
+        }
+
+        protected abstract void RefreshSelectAll(AppViewModel app);
+
+        [RelayCommand(CanExecute = nameof(IsDirty))]
+        protected virtual async Task Save()
+        {
+            Messenger.Send(new SaveMessage());
+        }
+
+        protected abstract void SetItemsView(AppViewModel app);
+
+        protected abstract void SetSelectAllValue(AppViewModel app, bool? value);
+
+        [RelayCommand(CanExecute = nameof(IsDirty))]
+        protected virtual async Task Undo()
+        {
+            Games.CollectionChanged -= OnGamesCollectionChanged;
+            dirtyGames.Clear();
+
+            Dictionary<uint, List<uint>> appidsToRelease = [];
+
+            for (int i = Games.Count - 1; i >= 0; i--)
+            {
+                var app = Games[i];
+                var itemsCollection = GetAppItemsCollection(app);
+
+                gameService.Unsubscribe(app.AppId, OnAppChanged);
+
+                if (snapshot.TryGetValue(app.AppId, out var snap))
+                {
+                    app.Name = snap.Name;
+                    app.IsEnabled = snap.IsEnabled;
+                    RestoreChildren(itemsCollection, snap.Items, app.AppId);
+                    RefreshSelectAll(app);
+                    gameService.Subscribe(app.AppId, OnAppChanged);
+                }
+                else
+                {
+                    Games.RemoveAt(i);
+                    UnsubscribeItemsCollection(app, itemsCollection);
+                    appidsToRelease.TryAdd(app.AppId, [.. itemsCollection.Select(x => x.AppId)]);
+                }
+            }
+
+            foreach (var backup in snapshot.Values.Where(b => !Games.ContainsKey(b.AppId)))
+            {
+                var app = gameService.GetOrAddApp(backup.AppId, backup.Name, backup.IsEnabled);
+                app.Name = backup.Name;
+                app.IsEnabled = backup.IsEnabled;
+
+                var itemsCollection = GetAppItemsCollection(app);
+                SubscribeItemsCollection(app, itemsCollection);
+
+                SetItemsView(app);
+                RestoreChildren(itemsCollection, backup.Items, backup.AppId);
+                RefreshSelectAll(app);
+
+                Games[backup.AppId] = app;
+                gameService.Subscribe(app.AppId, OnAppChanged);
+            }
+            gameService.ReleaseApp(appidsToRelease);
+
+            await Dispatcher.Yield();
+
+            Games.CollectionChanged += OnGamesCollectionChanged;
+
+            GamesView.Refresh();
+        }
+
+        private static bool FilterApp(AppViewModel app, string query)
+        {
+            if (string.IsNullOrWhiteSpace(query)) return true;
+
+            var q = query.Trim().ToLower();
+            return (app.Name?.Contains(q, StringComparison.CurrentCultureIgnoreCase) ?? false) || app.AppId.ToString().Contains(q);
+        }
+
+        private void DebounceSearch(Action action)
+        {
+            _searchDebounceTimer ??= new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
+            _searchDebounceTimer.Stop();
+
+            if (_searchDebounceHandler != null)
+                _searchDebounceTimer.Tick -= _searchDebounceHandler;
+
+            _searchDebounceHandler = (_, _) =>
+            {
+                _searchDebounceTimer.Stop();
+                action();
+            };
+
+            _searchDebounceTimer.Tick += _searchDebounceHandler;
+            _searchDebounceTimer.Start();
+        }
+
+        private bool IsDirty()
+        {
+            return dirtyGames.Count > 0;
+        }
+
+        [MemberNotNull(nameof(gameDbs), nameof(itemDbs))]
+        private void LoadDB()
+        {
+            gameDbs ??= [.. databaseService.Database.Load<GameDb>(
+                "WHERE ProfileID = ? AND ManagerType = ?", null, settingsService.Settings.ActiveProfileId, ManagerType)];
+
+            itemDbs ??= [.. databaseService.Database.Load<ItemDb>(
+                "WHERE ProfileID = ? AND ManagerType = ?", null, settingsService.Settings.ActiveProfileId, ManagerType)];
+        }
+
+        [RelayCommand]
+        private async Task OnEditAsync(object parameter)
+        {
+            if (parameter is not AppViewModel app) return;
+            var dataDialog = new EditDialogViewModel
+            {
+                Title = "Edit",
+                PlaceHolder = "Game name",
+                Name = app.Name,
+                AppId = app.AppId
+            };
+            var dialog = new EditDialog(dataDialog);
+            var result = await contentDialogService.ShowAsync(dialog, CancellationToken.None);
+            if (!result.HasFlag(ContentDialogResult.Primary))
+                return;
+
+            var newAppId = dataDialog.AppId ?? 0;
+            var enable = app.IsEnabled;
+            string? name = string.IsNullOrWhiteSpace(dataDialog.Name) ? null : dataDialog.Name;
+
+            if (app.AppId != newAppId)
+            {
+                var childCollection = GetAppItemsCollection(app);
+                Games.Remove(app);
+
+                if (!Games.TryGetValue(newAppId, out app))
+                {
+                    app = gameService.GetOrAddApp(newAppId, name, enable);
+                    SetItemsView(app);
+                    Games[app.AppId] = app;
+                }
+
+                foreach (var item in childCollection.ToList())
+                {
+                    if (!childCollection.ContainsKey(item.AppId))
+                    {
+                        var child = gameService.GetOrAddApp(item.AppId, item.Name, item.IsEnabled);
+                        childCollection[child.AppId] = child;
+                    }
+                }
+            }
+
+            app.Name = name;
+
+            GamesView.Refresh();
+        }
+
+        [RelayCommand]
+        private async Task OnEditItemAsync(object parameter)
+        {
+            if (parameter is not object[] param) return;
+            if (param[0] is not AppViewModel item) return;
+            if (param[1] is not AppViewModel app) return;
+
+            var dataDialog = new EditDialogViewModel
+            {
+                ParentEdit = true,
+                Title = "Edit App",
+                PlaceHolder = "Name",
+                Name = item.Name,
+                AppId = item.AppId,
+                SelectedGame = app,
+                Games = Games.AsEnumerable()
+            };
+            var dialog = new EditDialog(dataDialog);
+            var result = await contentDialogService.ShowAsync(dialog, CancellationToken.None);
+            if (result != ContentDialogResult.Primary)
+                return;
+
+            var newAppId = dataDialog.AppId ?? item.AppId;
+            string? name = string.IsNullOrWhiteSpace(dataDialog.Name) ? null : dataDialog.Name;
+
+            if (item.AppId != newAppId)
+            {
+                var items = GetAppItemsCollection(app);
+                items.Remove(item);
+                gameService.ReleaseApp(item.AppId, app.AppId);
+
+                item = gameService.GetOrAddApp(newAppId, name, item.IsEnabled);
+
+                item.Name = name;
+                items[newAppId] = item;
+            }
+            else
+            {
+                item.Name = name;
+            }
+
+            if (dataDialog.SelectedGame.AppId != app.AppId)
+            {
+                var items = GetAppItemsCollection(app);
+                items.Remove(item);
+
+                items = GetAppItemsCollection(dataDialog.SelectedGame);
+
+                if (!items.ContainsKey(item.AppId))
+                {
+                    items[item.AppId] = gameService.GetOrAddApp(item.AppId, item.Name, item.IsEnabled, dataDialog.SelectedGame.AppId);
+                }
             }
         }
 

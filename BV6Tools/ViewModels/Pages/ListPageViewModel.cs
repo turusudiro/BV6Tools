@@ -114,17 +114,6 @@ public partial class ListPageViewModel : AppManagerPageViewModel
 
     private async Task AddedMessageHandler(object r, AddedMessage m)
     {
-        try
-        {
-            var db = databaseService.Database.LoadByKeys<GameDb>(
-                ManagerType, m.AppID, settingsService.Settings.ActiveProfileId);
-            if (db != null)
-            {
-                return;
-            }
-        }
-        catch { }
-
         Games.TryGetValue(m.AppID, out var game);
 
         if (game != null && m.DLC == null)
@@ -138,6 +127,26 @@ public partial class ListPageViewModel : AppManagerPageViewModel
         {
             game = gameService.GetOrAddApp(m.AppID, m.Name);
             game.IsEnabled = true;
+
+            if (!IsInitialized)
+            {
+                var db = databaseService.Database.LoadByKeys<GameDb>(
+                ManagerType, m.AppID, settingsService.Settings.ActiveProfileId);
+
+                if (db != null)
+                {
+                    var dbItems = databaseService.Database.Load<ItemDb>(
+                        "WHERE ParentAppID = ? AND ProfileID = ? AND ManagerType = ?",
+                        m.AppID, settingsService.Settings.ActiveProfileId, ManagerType);
+
+                    var appids = dbItems.Select(x => x.AppID).ToList();
+                    appids.Add(m.AppID);
+
+                    var caches = databaseService.GetAppsCache(appids);
+
+                    await InitializeApp(db, caches, new Dictionary<uint, List<ItemDb>> { [m.AppID] = [.. dbItems] });
+                }
+            }
 
             Games[m.AppID] = game;
             addedCount++;
@@ -157,14 +166,19 @@ public partial class ListPageViewModel : AppManagerPageViewModel
             app.IsEnabled = m.IsEnabled ?? app.IsEnabled;
         }
 
+        await RefreshGameCommand.ExecuteAsync(game);
+
         OnAppChanged(game, true);
 
         AddNewDlcCommand.NotifyCanExecuteChanged();
 
         Messenger.Send(new NavigationPageBadgeMessage(nameof(ListPageViewModel), dirtyGames.Count));
 
-        snackbarService.Show("Success", "Added to the List", ControlAppearance.Success,
+        if (addedCount > 0)
+        {
+            snackbarService.Show("Success", "Added to the List", ControlAppearance.Success,
                     new SymbolIcon(SymbolRegular.TaskListSquareAdd24), default);
+        }
     }
 
     [RelayCommand]
