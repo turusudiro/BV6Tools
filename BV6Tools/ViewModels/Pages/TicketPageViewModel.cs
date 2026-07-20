@@ -15,7 +15,7 @@ using Wpf.Ui.Controls;
 
 namespace BV6Tools.ViewModels.Pages
 {
-    public partial class TicketPageViewModel : ObservableObject, INavigationAware
+    public partial class TicketPageViewModel : ObservableRecipient, INavigationAware
     {
         private readonly IContentDialogService contentDialogService;
         private readonly DatabaseService databaseService;
@@ -33,6 +33,18 @@ namespace BV6Tools.ViewModels.Pages
             this.databaseService = databaseService;
 
             databaseService.Database.SynchronizeSchema<TicketDb>();
+            IsActive = true;
+        }
+
+        protected override void OnActivated()
+        {
+            base.OnActivated();
+            Messenger.Register<NotificationCenterMessage, string>(this,
+            MessengerTokens.Ticket, (r, m) =>
+            {
+                Save();
+                m.Reply(true);
+            });
         }
 
         public ObservableDictionary<uint, TicketViewModel> Tickets { get; set; } = [];

@@ -85,9 +85,15 @@ public partial class DepotPageViewModel : AppManagerPageViewModel, INavigationAw
     protected override void OnActivated()
     {
         base.OnActivated();
-        Messenger.Register<LuaAddedMessage>(this, (s, m) =>
+        Messenger.Register<NotificationCenterMessage, string>(this,
+            MessengerTokens.Depot, async (r, m) =>
         {
-            ProcessLua(m.LuaData, m.AppId, m.Name);
+                await Save();
+                m.Reply(true);
+        });
+        Messenger.Register<LuaAddedMessage>(this, async (s, m) =>
+        {
+            await ProcessLua(m.LuaData, m.AppId, m.Name);
         });
     }
 
@@ -271,7 +277,7 @@ public partial class DepotPageViewModel : AppManagerPageViewModel, INavigationAw
         }
     }
 
-    private void ProcessLua(LuaData luaData, uint appid, string? name)
+    private async Task ProcessLua(LuaData luaData, uint appid, string? name)
     {
         var appids = new HashSet<uint>(luaData.Manifest.Keys.Select(uint.Parse))
         {

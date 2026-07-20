@@ -47,15 +47,23 @@ public partial class ListPageViewModel : AppManagerPageViewModel
 
     protected override bool? GetSelectAllValue(AppViewModel app) => app.SelectAllDLC;
 
+    protected override void OnActivated()
+    {
+        base.OnActivated();
+        Messenger.Register<NotificationCenterMessage, string>(this,
+            MessengerTokens.List, async (r, m) =>
+            {
+                await Save();
+                m.Reply(true);
+            });
+        Messenger.Register<AddedMessage, string>(this,
+            MessengerTokens.List, async (r, m) => await AddedMessageHandler(r, m));
+    }
+
     protected override void OnDirtyChanged()
     {
         Messenger.Send(new NavigationPageBadgeMessage(nameof(ListPageViewModel), dirtyGames.Count));
         base.OnDirtyChanged();
-    }
-    protected override void OnActivated()
-    {
-        base.OnActivated();
-        Messenger.Register<AddedMessage, string>(this, MessengerTokens.List, AddedMessageHandler);
     }
 
     protected override void OnFirstItemLoaded()
@@ -104,7 +112,7 @@ public partial class ListPageViewModel : AppManagerPageViewModel
         AddNewDlcCommand.NotifyCanExecuteChanged();
     }
 
-    private void AddedMessageHandler(object r, AddedMessage m)
+    private async Task AddedMessageHandler(object r, AddedMessage m)
     {
         try
         {

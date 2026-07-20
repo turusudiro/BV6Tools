@@ -18,6 +18,15 @@ namespace BV6Tools.ViewModels.Windows;
 
 public partial class MainWindowViewModel : ObservableRecipient
 {
+    private readonly string[] allmessengertokens =
+    [
+        MessengerTokens.List,
+        MessengerTokens.Depot,
+        MessengerTokens.Lua,
+        MessengerTokens.Ticket,
+        MessengerTokens.Settings
+    ];
+
     private readonly NavigationViewItem depotNavigationViewItem = new()
     {
         Content = "Depot",
@@ -39,6 +48,15 @@ public partial class MainWindowViewModel : ObservableRecipient
         Content = "Lua",
         Icon = new SymbolIcon { Symbol = SymbolRegular.Script16 },
         TargetPageType = typeof(LuaPage)
+    };
+
+    private readonly Dictionary<string, int> pendingCounts = new()
+    {
+        [nameof(ListPageViewModel)] = 0,
+        [nameof(DepotPageViewModel)] = 0,
+        [nameof(LuaPageViewModel)] = 0,
+        [nameof(TicketPageViewModel)] = 0,
+        [nameof(SettingsPageViewModel)] = 0,
     };
 
     private readonly ISettingsService settingsService;
@@ -86,12 +104,26 @@ public partial class MainWindowViewModel : ObservableRecipient
     [ObservableProperty]
     public partial string ApplicationTitle { get; set; } = "BV6Tools";
 
+    public bool DepotHasPendingChanges => pendingCounts[nameof(DepotPageViewModel)] > 0;
+
+    [NotifyCanExecuteChangedFor(nameof(ShowNotificationFlyoutCommand))]
+    [ObservableProperty]
+    public partial bool HasPendingChanges { get; set; }
+
     [ObservableProperty]
     public partial bool IsCounterVisible { get; set; } = true;
 
     public bool IsLimit => LimitMax < Appids.Count;
 
+    [NotifyCanExecuteChangedFor(nameof(ShowNotificationFlyoutCommand))]
+    [ObservableProperty]
+    public partial bool IsNotificationFlyoutOpen { get; set; }
+
     public int LimitMax { get; } = GreenLuma.Limit;
+
+    public bool ListHasPendingChanges => pendingCounts[nameof(ListPageViewModel)] > 0;
+
+    public bool LuaHasPendingChanges => pendingCounts[nameof(LuaPageViewModel)] > 0;
 
     [ObservableProperty]
     public partial ObservableCollection<object> NavigationFooter { get; set; } = [];
@@ -102,10 +134,17 @@ public partial class MainWindowViewModel : ObservableRecipient
     [ObservableProperty]
     public partial string NewProfileName { get; set; } = string.Empty;
 
+    [ObservableProperty]
+    public partial int PendingChangesCount { get; set; }
+
     public ObservableCollection<ProfileDb> Profiles { get; set; }
 
     [ObservableProperty]
     public partial ProfileDb? SelectedProfile { get; set; }
+
+    public bool SettingsHasPendingChanges => pendingCounts[nameof(SettingsPageViewModel)] > 0;
+
+    public bool TicketHasPendingChanges => pendingCounts[nameof(TicketPageViewModel)] > 0;
 
     protected override void OnActivated()
     {
@@ -157,6 +196,42 @@ public partial class MainWindowViewModel : ObservableRecipient
         ];
 
         _isInitialized = true;
+    }
+
+    [RelayCommand]
+    private async Task NotificationSendSave(string page)
+    {
+        if (page == "all")
+        {
+            foreach (var token in allmessengertokens)
+            {
+                try
+                {
+                    await Messenger.Send(new NotificationCenterMessage(), token).Response;
+                }
+                catch { }
+            }
+        }
+        else
+        {
+            var token = page switch
+            {
+                "list" => MessengerTokens.List,
+                "depot" => MessengerTokens.Depot,
+                "lua" => MessengerTokens.Lua,
+                "ticket" => MessengerTokens.Ticket,
+                "settings" => MessengerTokens.Settings,
+                _ => null
+            };
+            if (token == null) return;
+            try
+            {
+                await Messenger.Send(new NotificationCenterMessage(), token).Response;
+            }
+            catch { }
+        }
+
+        IsNotificationFlyoutOpen = HasPendingChanges;
     }
 
     private void OnAppItemPropertyChanged(AppViewModel app, string? propName)
@@ -213,18 +288,37 @@ public partial class MainWindowViewModel : ObservableRecipient
             nameof(TicketPageViewModel) => ticketNavigationViewItem,
             _ => null
         };
-        if (item == null) return;
-        item.InfoBadge = m.Count > 0 ? new InfoBadge
+        item?.InfoBadge = m.Count > 0 ? new InfoBadge
         {
             Value = m.Count.ToString(),
             Severity = InfoBadgeSeverity.Attention
         } : null;
+
+        pendingCounts[m.NavigationPageName] = m.Count;
+
+        PendingChangesCount = pendingCounts.Values.Count(c => c > 0);
+        HasPendingChanges = pendingCounts.Values.Any(c => c > 0);
+        OnPropertyChanged(m.NavigationPageName switch
+        {
+            nameof(ListPageViewModel) => nameof(ListHasPendingChanges),
+            nameof(DepotPageViewModel) => nameof(DepotHasPendingChanges),
+            nameof(LuaPageViewModel) => nameof(LuaHasPendingChanges),
+            nameof(TicketPageViewModel) => nameof(TicketHasPendingChanges),
+            nameof(SettingsPageViewModel) => nameof(SettingsHasPendingChanges),
+            _ => null
+        });
     }
 
     private void OnProfileChangedMessage(object r, ProfileChangedMessage m)
     {
         OnPropertyChanged(nameof(Appids));
         OnPropertyChanged(nameof(IsLimit));
+    }
+
+    [RelayCommand]
+    private void ShowNotificationFlyout()
+    {
+        IsNotificationFlyoutOpen = true;
     }
 
     private void UpdateCounterVisibility() =>

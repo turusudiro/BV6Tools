@@ -109,6 +109,12 @@ public partial class SettingsPageViewModel : ObservableRecipient, INavigationAwa
 
     protected override void OnActivated()
     {
+        Messenger.Register<NotificationCenterMessage, string>(this,
+            MessengerTokens.Settings, (r, m) =>
+            {
+                Save();
+                m.Reply(true);
+            });
         Messenger.Register<ProfileChangedMessage>(this, OnProfileChangedMessage);
     }
 

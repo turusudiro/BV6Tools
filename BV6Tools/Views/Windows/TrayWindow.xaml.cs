@@ -102,7 +102,7 @@ namespace BV6Tools.Views.Windows
                             Environment.NewLine +
                             "Developer Mode is disabled, Please enable developer mode." +
                             Environment.NewLine +
-                            "Or run BV6Tools as admin instead.",
+                            "Or restart BV6Tools as admin instead.",
                             PrimaryButtonText = "Open developer settings",
                             CloseButtonText = "Cancel"
                         };
@@ -118,7 +118,7 @@ namespace BV6Tools.Views.Windows
                             Environment.NewLine +
                             "Developer Mode is disabled, Please enable developer mode." +
                             Environment.NewLine +
-                            "Or run BV6Tools as admin instead.",
+                            "Or restart BV6Tools as admin instead.",
                             PrimaryButtonText = "Open developer settings",
                             CloseButtonText = "Cancel"
                         };

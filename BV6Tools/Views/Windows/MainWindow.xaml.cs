@@ -47,6 +47,12 @@ public partial class MainWindow : INavigationWindow
         throw new NotImplementedException();
     }
 
+    public void HideWindow()
+    {
+        SaveWindowPosition();
+        Hide();
+    }
+
     public void SetServiceProvider(IServiceProvider serviceProvider)
     {
         throw new NotImplementedException();
@@ -75,10 +81,14 @@ public partial class MainWindow : INavigationWindow
         base.OnClosing(e);
     }
 
-    public void HideWindow()
+    private void RootNavigation_SelectionChanged(NavigationView sender, RoutedEventArgs args)
     {
-        SaveWindowPosition();
-        Hide();
+        RootNavigation.SetCurrentValue(
+            NavigationView.HeaderVisibilityProperty,
+            RootNavigation.SelectedItem?.TargetPageType != typeof(DashboardPage)
+            ? Visibility.Visible
+            : Visibility.Collapsed
+            );
     }
 
     private void SaveWindowPosition()
@@ -95,16 +105,6 @@ public partial class MainWindow : INavigationWindow
         {
             settingsService.Save(x => x.WINDOWPLACEMENT = state);
         }
-
-    }
-    private void RootNavigation_SelectionChanged(NavigationView sender, RoutedEventArgs args)
-    {
-        RootNavigation.SetCurrentValue(
-            NavigationView.HeaderVisibilityProperty,
-            RootNavigation.SelectedItem?.TargetPageType != typeof(DashboardPage)
-            ? Visibility.Visible
-            : Visibility.Collapsed
-            );
     }
 
     private void TitleBar_HelpClicked(TitleBar sender, RoutedEventArgs args)
@@ -117,6 +117,22 @@ public partial class MainWindow : INavigationWindow
     public void CloseWindow() => Close();
 
     public INavigationView GetNavigation() => RootNavigation;
+
+    public bool Navigate(Type pageType) => RootNavigation.Navigate(pageType);
+
+    public void SetPageService(INavigationViewPageProvider navigationViewPageProvider) =>
+        RootNavigation.SetPageProviderService(navigationViewPageProvider);
+
+    public void ShowWindow()
+    {
+        if (WindowState == WindowState.Minimized)
+        {
+            WindowState = WindowState.Normal;
+        }
+
+        Show();
+    }
+
     protected override void OnPropertyChanged(DependencyPropertyChangedEventArgs e)
     {
         base.OnPropertyChanged(e);
@@ -138,20 +154,6 @@ public partial class MainWindow : INavigationWindow
                 }
             }, System.Windows.Threading.DispatcherPriority.Loaded);
         }
-    }
-    public bool Navigate(Type pageType) => RootNavigation.Navigate(pageType);
-
-    public void SetPageService(INavigationViewPageProvider navigationViewPageProvider) =>
-        RootNavigation.SetPageProviderService(navigationViewPageProvider);
-
-    public void ShowWindow()
-    {
-        if (WindowState == WindowState.Minimized)
-        {
-            WindowState = WindowState.Normal;
-        }
-
-        Show();
     }
 
     #endregion INavigationWindow methods

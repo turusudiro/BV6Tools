@@ -99,6 +99,12 @@ namespace BV6Tools.ViewModels.Pages.Lua
 
         protected override void OnActivated()
         {
+            Messenger.Register<NotificationCenterMessage, string>(this,
+            MessengerTokens.Lua, (r, m) =>
+            {
+                Save(default);
+                m.Reply(true);
+            });
             Messenger.Register<DownloadMessage>(this, DownloadMessageHandler);
         }
 
