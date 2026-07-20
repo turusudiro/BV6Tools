@@ -58,6 +58,7 @@ jobs:
           skip-tag: true
           skip-on-empty: false
           skip-git-pull: true
+          tag-prefix: ""
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
