@@ -109,11 +109,13 @@ jobs:
             }
 
       - name: Setup .NET SDK
+        if: github.event_name == 'push'
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
 
       - name: Publish WPF App
+        if: github.event_name == 'push'
         run: >
           dotnet publish BV6Tools/BV6Tools.csproj
           --configuration Release
@@ -128,6 +130,7 @@ jobs:
           -o ./publish/BV6Tools
 
       - name: Cleanup Unwanted Files
+        if: github.event_name == 'push'
         uses: actions/github-script@v9
         with:
           script: |
@@ -153,7 +156,7 @@ jobs:
             cleanDir('./publish/BV6Tools');
 
       - name: Prepare Dependencies (Linux)
-        if: runner.os == 'Linux'
+        if: github.event_name == 'push' && runner.os == 'Linux'
         shell: bash
         run: |
           if ! command -v zip >/dev/null 2>&1; then
@@ -164,13 +167,13 @@ jobs:
           fi
 
       - name: Create Release Archive (Windows)
-        if: runner.os == 'Windows'
+        if: github.event_name == 'push' && runner.os == 'Windows'
         run: |
           Compress-Archive -Path './publish/BV6Tools' -DestinationPath './publish/BV6Tools-Release.zip' -Force
           Remove-Item -Recurse -Force './publish/BV6Tools'
  
       - name: Create Release Archive (Linux)
-        if: runner.os == 'Linux'
+        if: github.event_name == 'push' && runner.os == 'Linux'
         shell: bash
         run: |
           cd ./publish
@@ -178,6 +181,7 @@ jobs:
           rm -rf BV6Tools
 
       - name: Create changelog text
+        if: github.event_name == 'push'
         id: changelog
         uses: loopwerk/tag-changelog@v1
         with:
@@ -185,6 +189,7 @@ jobs:
           exclude_types: other
 
       - name: Create GitHub Release
+        if: github.event_name == 'push'
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.get_version.outputs.tag_name }}
