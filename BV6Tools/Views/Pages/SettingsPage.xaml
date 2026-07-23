@@ -14,6 +14,7 @@
       xmlns:theme="clr-namespace:Wpf.Ui.Appearance;assembly=Wpf.Ui"
       xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
       xmlns:vmShared="clr-namespace:BV6Tools.ViewModels.Shared"
+      xmlns:behaviors="clr-namespace:BV6Tools.Behaviors"
       Title="SettingsPage"
       d:DataContext="{d:DesignInstance local:SettingsPage,
                                        IsDesignTimeCreatable=False}"
@@ -672,6 +673,21 @@
                                 <control:IconLabel Label="Stop Background Worker"
                                                    Symbol="ShieldDismiss24" />
                             </ui:Button>
+                            <control:IconLabel Margin="0,12,0,0"
+                                               Label="GreenLuma Limit"
+                                               LabelFontSize="16"
+                                               LabelFontWeight="Medium"
+                                               Symbol="LockShield24"
+                                               SymbolFontSize="24" />
+                            <ui:NumberBox Margin="0,12,0,0"
+                                          Minimum="1"
+                                          SpinButtonPlacementMode="Inline"
+                                          Value="{Binding ViewModel.Settings.GreenLumaLimit,
+                                                          UpdateSourceTrigger=PropertyChanged}">
+                                <i:Interaction.Behaviors>
+                                    <behaviors:NumberBoxEmptyBehavior />
+                                </i:Interaction.Behaviors>
+                            </ui:NumberBox>
                         </StackPanel>
                     </ui:Card>
                 </StackPanel>

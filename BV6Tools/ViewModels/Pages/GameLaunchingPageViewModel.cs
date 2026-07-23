@@ -45,7 +45,8 @@ public partial class GameLaunchingPageViewModel : ObservableObject, INavigationA
 
     public GameLaunchingPageViewModel(IContentDialogService contentDialogService, ISnackbarService snackbarService,
             ILoggerService logger, GameService gameService, DatabaseService databaseService,
-            InjectorService injectorService, InjectorManagerService injectorManagerService)
+            InjectorService injectorService, InjectorManagerService injectorManagerService,
+            ISettingsService settingsService)
     {
         this.contentDialogService = contentDialogService;
         this.snackbarService = snackbarService;
@@ -61,6 +62,7 @@ public partial class GameLaunchingPageViewModel : ObservableObject, INavigationA
         };
 
         libraryGameOptions = databaseService.Database.LoadAll<LibraryGameOptionsDb>(loadOptions).ToDictionary(x => x.AppId);
+        Settings = settingsService.Settings;
     }
 
     [ObservableProperty]
@@ -77,9 +79,7 @@ public partial class GameLaunchingPageViewModel : ObservableObject, INavigationA
     [ObservableProperty]
     public partial bool IsFlyoutOpen { get; set; }
 
-    public bool IsLimit => GreenLuma.Limit < Appids.Count;
-
-    public int LimitMax { get; } = GreenLuma.Limit;
+    public bool IsLimit => Settings.GreenLumaLimit < Appids.Count;
 
     [ObservableProperty]
     public partial ProcessMode Mode { get; set; }
@@ -92,6 +92,7 @@ public partial class GameLaunchingPageViewModel : ObservableObject, INavigationA
     public partial string SearchText { get; set; } = string.Empty;
 
     public bool? SelectAll { get; set; }
+    public AppSettings Settings { get; }
 
     [ObservableProperty]
     public partial bool Unlock_Base { get; set; }

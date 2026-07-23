@@ -49,6 +49,10 @@ public partial class AppSettings : ObservableObject
     [ObservableProperty]
     public partial bool FetchOnlineDepotInfo { get; set; }
 
+    [DefaultEquality]
+    [ObservableProperty]
+    public partial int GreenLumaLimit { get; set; } = GreenLumaCommon.GreenLuma.Limit;
+
     [ObservableProperty]
     public partial double LibraryViewBoxMargin { get; set; } = 10;
 

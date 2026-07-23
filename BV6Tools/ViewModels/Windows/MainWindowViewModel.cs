@@ -8,7 +8,6 @@ using BV6Tools.ViewModels.Pages.Lua;
 using BV6Tools.ViewModels.Shared;
 using BV6Tools.Views.Pages;
 using CommunityToolkit.Mvvm.Messaging;
-using GreenLumaCommon;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using Wpf.Ui;
@@ -92,6 +91,7 @@ public partial class MainWindowViewModel : ObservableRecipient
 
         mode = settingsService.Settings.Mode;
         IsCounterVisible = mode.IsGreenLuma();
+        Settings = settingsService.Settings;
 
         if (!_isInitialized)
         {
@@ -113,16 +113,13 @@ public partial class MainWindowViewModel : ObservableRecipient
     [ObservableProperty]
     public partial bool IsCounterVisible { get; set; } = true;
 
-    public bool IsLimit => LimitMax < Appids.Count;
+    public bool IsLimit => settingsService.Settings.GreenLumaLimit < Appids.Count;
 
     [NotifyCanExecuteChangedFor(nameof(ShowNotificationFlyoutCommand))]
     [ObservableProperty]
     public partial bool IsNotificationFlyoutOpen { get; set; }
 
-    public int LimitMax { get; } = GreenLuma.Limit;
-
     public bool ListHasPendingChanges => pendingCounts[nameof(ListPageViewModel)] > 0;
-
     public bool LuaHasPendingChanges => pendingCounts[nameof(LuaPageViewModel)] > 0;
 
     [ObservableProperty]
@@ -142,6 +139,7 @@ public partial class MainWindowViewModel : ObservableRecipient
     [ObservableProperty]
     public partial ProfileDb? SelectedProfile { get; set; }
 
+    public AppSettings Settings { get; }
     public bool SettingsHasPendingChanges => pendingCounts[nameof(SettingsPageViewModel)] > 0;
 
     public bool TicketHasPendingChanges => pendingCounts[nameof(TicketPageViewModel)] > 0;

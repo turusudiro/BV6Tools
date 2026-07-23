@@ -73,7 +73,7 @@
                                                     Mode=OneWay}" />
                                 <LineBreak />
                                 -<LineBreak />
-                                <Run Text="{Binding ViewModel.LimitMax,
+                                <Run Text="{Binding ViewModel.Settings.GreenLumaLimit,
                                                     Mode=OneWay}" /></TextBlock>
                             <TextBlock Visibility="{Binding ElementName=RootNavigation,
                                                             Path=IsPaneOpen,
@@ -81,7 +81,7 @@
                                 <Run Text="{Binding ViewModel.Appids.Count,
                                                     Mode=OneWay}" />
                                 <Run Text="/" />
-                                <Run Text="{Binding ViewModel.LimitMax,
+                                <Run Text="{Binding ViewModel.Settings.GreenLumaLimit,
                                                     Mode=OneWay}" /></TextBlock>
                         </StackPanel>
                     </ui:Button>

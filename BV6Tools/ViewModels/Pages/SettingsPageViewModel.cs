@@ -795,6 +795,7 @@ public partial class SettingsPageViewModel : ObservableRecipient, INavigationAwa
                 setting.MinimizeToTray = Settings.MinimizeToTray;
                 setting.SteamPath = Settings.SteamPath;
                 setting.SteamArgs = Settings.SteamArgs;
+                setting.GreenLumaLimit = Settings.GreenLumaLimit;
             });
 
             if (Settings.DisableCleanup)
@@ -845,6 +846,7 @@ public partial class SettingsPageViewModel : ObservableRecipient, INavigationAwa
         Settings.MinimizeToTray = settingsCopy.MinimizeToTray;
         Settings.SteamPath = settingsCopy.SteamPath;
         Settings.SteamArgs = settingsCopy.SteamArgs;
+        Settings.GreenLumaLimit = settingsCopy.GreenLumaLimit;
 
         SaveCommand.NotifyCanExecuteChanged();
         UndoCommand.NotifyCanExecuteChanged();

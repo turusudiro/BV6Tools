@@ -114,7 +114,7 @@
                                     <ui:TextBlock.Text>
                                         <MultiBinding StringFormat="{}{0}/{1}">
                                             <Binding Path="ViewModel.Appids.Count" />
-                                            <Binding Path="ViewModel.LimitMax" />
+                                            <Binding Path="ViewModel.Settings.GreenLumaLimit" />
                                         </MultiBinding>
                                     </ui:TextBlock.Text>
                                 </ui:TextBlock>
