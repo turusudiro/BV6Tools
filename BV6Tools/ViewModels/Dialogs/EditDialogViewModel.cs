@@ -53,30 +53,6 @@ public partial class EditDialogViewModel : ObservableObject
     [ObservableProperty]
     public partial string? Title { get; set; }
 
-    public void OnFilterNumericInput(object sender, TextCompositionEventArgs e)
-    {
-        e.Handled = !e.Text.All(char.IsDigit);
-    }
-
-    public void OnPreviewExecutedPaste(object sender, ExecutedRoutedEventArgs e)
-    {
-        if (e.Command == ApplicationCommands.Paste)
-            if (Clipboard.ContainsText())
-            {
-                var text = Clipboard.GetText();
-                if (!text.All(char.IsDigit)) e.Handled = true;
-            }
-    }
-
-    public void OnValueChangedNumberBox(object sender, TextChangedEventArgs e)
-    {
-        var numBox = (NumberBox)sender;
-        if (uint.TryParse(numBox.Text, NumberStyles.Any, CultureInfo.InvariantCulture, out var newValue))
-            numBox.Value = newValue;
-        else
-            numBox.Value = null;
-    }
-
     private bool IsSaveValid()
     {
         if (!AppId.HasValue || AppId.Value == 0) return false;

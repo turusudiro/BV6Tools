@@ -42,12 +42,9 @@
                           SpinButtonPlacementMode="Inline"
                           Value="{Binding ViewModel.NumberBoxAppID,
                                           UpdateSourceTrigger=PropertyChanged}">
-                <i:Interaction.Triggers>
-                    <i:EventTrigger EventName="TextChanged">
-                        <i:CallMethodAction MethodName="OnValueChangedNumberBox"
-                                            TargetObject="{Binding ViewModel}" />
-                    </i:EventTrigger>
-                </i:Interaction.Triggers>
+                <i:Interaction.Behaviors>
+                    <behaviors:NumberBoxEmptyBehavior NullableValue="True" />
+                </i:Interaction.Behaviors>
             </ui:NumberBox>
         </StackPanel>
         <StackPanel Margin="0,7,0,0"
