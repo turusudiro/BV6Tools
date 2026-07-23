@@ -16,7 +16,7 @@ namespace GreenLumaCommon
 
     public static partial class GreenLuma
     {
-        public const int Limit = 148;
+        public const int Limit = 149;
 
         public const string Url = @"https://cs.rin.ru/forum/viewtopic.php?f=29&t=103709";
 
