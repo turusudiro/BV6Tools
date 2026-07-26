@@ -1,4 +1,5 @@
-﻿using ProcessCommon;
+﻿using IniParser;
+using ProcessCommon;
 using System.Diagnostics;
 using System.IO;
 using System.Text.RegularExpressions;
@@ -19,6 +20,9 @@ namespace GreenLumaCommon
         public const int Limit = 149;
 
         public const string Url = @"https://cs.rin.ru/forum/viewtopic.php?f=29&t=103709";
+
+        [GeneratedRegex(@"(?<appid>\d+)\s=")]
+        public static partial Regex AppListOldAppIDRegex { get; }
 
         [GeneratedRegex(@"GreenLuma\w+64\.dll", RegexOptions.IgnoreCase)]
         public static partial Regex GreenLumaDLLFile64Regex { get; }
@@ -150,6 +154,10 @@ namespace GreenLumaCommon
                 throw new InvalidOperationException("GreenLuma DLL not found!");
             var injectorExe = greenlumaFiles.FirstOrDefault(InjectorExeRegex.IsMatch) ??
                 throw new InvalidOperationException("DLLInjector.exe not found!");
+            var applistIni = greenlumaFiles.FirstOrDefault(x => x.EndsWith("applist.ini", StringComparison.OrdinalIgnoreCase)) ??
+                throw new InvalidOperationException("AppList.ini not found!");
+            var dllIni = greenlumaFiles.FirstOrDefault(x => x.EndsWith("dllinjector.ini", StringComparison.OrdinalIgnoreCase)) ??
+                throw new InvalidOperationException("DLLInjector.ini not found!");
 
             var useFullPathsFromIni = "0";
             var exe = "Steam.exe";
@@ -223,97 +231,59 @@ namespace GreenLumaCommon
                 injectorExe = injectorDest;
             }
 
-            var DLLInjectorIniContent = $"""
-                                     [DllInjector]
-                                     AllowMultipleInstancesOfDLLInjector = 0
-                                     UseFullPathsFromIni = {useFullPathsFromIni}
-
-                                     # Exe to start
-                                     Exe = {exe}
-                                     CommandLine = {commandLine}
-
-                                     # Dll to inject
-                                     Dll = {dll}
-
-                                     # Export to call in dll
-                                     Export = Init
-
-                                     # Check if call to export returned positive value
-                                     CheckReturnValue = 0
-
-                                     # Wait for started exe to close before exiting the DllInjector process.
-                                     WaitForProcessTermination = {waitForProcessTermination}
-
-                                     # Set a fake parent process
-                                     # EnableMitigationsOnChildProcess must be disabled for this.
-                                     EnableFakeParentProcess = {enableFakeParentProcess}
-                                     FakeParentProcess = explorer.exe
-
-                                     # Enable security mitigations on child process.
-                                     EnableMitigationsOnChildProcess = 0
-
-                                     DEP = 1
-                                     SEHOP = 1
-                                     HeapTerminate = 1
-                                     ForceRelocateImages = 1
-                                     BottomUpASLR = 1
-                                     HighEntropyASLR = 1
-                                     RelocationsRequired = 1
-                                     StrictHandleChecks = 0
-                                     Win32kSystemCallDisable = 0
-                                     ExtensionPointDisable = 1
-                                     CFG = 1
-                                     CFGExportSuppression = 1
-                                     StrictCFG = 1
-                                     DynamicCodeDisable = 0
-                                     DynamicCodeAllowOptOut = 0
-                                     BlockNonMicrosoftBinaries = 0
-                                     FontDisable = 1
-                                     NoRemoteImages = 1
-                                     NoLowLabelImages = 1
-                                     PreferSystem32 = 0
-                                     RestrictIndirectBranchPrediction = 1
-                                     SpeculativeStoreBypassDisable = 0
-                                     ShadowStack = 0
-                                     ContextIPValidation = 0
-                                     BlockNonCETEHCONT = 0
-                                     BlockFSCTL = 0
-
-                                     # Number to files to create
-                                     CreateFiles = {createFiles}
-
-                                     # Name of the file(s) to create
-                                     FileToCreate_1 = {fileToCreate_1}
-                                     FileToCreate_2 = {fileToCreate_2}
-
-                                     #Patch an x86 exe to enable IMAGE_FILE_LARGE_ADDRESS_AWARE
-                                     Use4GBPatch = 0
-                                     FileToPatch_1 =
-
-                                     BootImage =
-                                     BootImageWidth = 500
-                                     BootImageHeight = 500
-                                     BootImageXOffest = 240
-                                     BootImageYOffest = 280
-                                     """;
-
-            File.WriteAllText(dllPath, DLLInjectorIniContent);
-
             if (Directory.Exists(applistPath))
             {
                 Directory.Delete(applistPath, true);
             }
             Directory.CreateDirectory(applistPath);
 
-            int totalAppid = appids.Count();
-            int i = 0;
+            var parser = new FileIniDataParser();
+            parser.Parser.Configuration.CommentString = "#";
 
+            var dllIniData = parser.ReadFile(dllIni);
+            dllIniData["DllInjector"]["UseFullPathsFromIni"] = useFullPathsFromIni;
+            dllIniData["DllInjector"]["Exe"] = exe;
+            dllIniData["DllInjector"]["CommandLine"] = commandLine;
+            dllIniData["DllInjector"]["Dll"] = dll;
+            dllIniData["DllInjector"]["WaitForProcessTermination"] = waitForProcessTermination;
+            dllIniData["DllInjector"]["EnableFakeParentProcess"] = enableFakeParentProcess;
+            dllIniData["DllInjector"]["CreateFiles"] = createFiles;
+            dllIniData["DllInjector"]["FileToCreate_1"] = fileToCreate_1;
+            dllIniData["DllInjector"]["FileToCreate_2"] = fileToCreate_2;
+            dllIniData["DllInjector"]["BootImage"] = string.Empty;
+
+            parser.WriteFile(dllPath, dllIniData, new System.Text.UTF8Encoding(false));
+
+            var applistIniData = parser.ReadFile(applistIni);
+            applistIniData["AppList"].RemoveAllKeys();
+
+            var oldAppids = new List<string>();
+            foreach (var line in await File.ReadAllLinesAsync(applistIni))
+            {
+                var match = AppListOldAppIDRegex.Match(line);
+                if (match.Success)
+                {
+                    string appid = match.Groups["appid"].Value;
+                    oldAppids.Add(appid);
+                }
+            }
+
+            if (oldAppids.Count == 0)
+            {
+                throw new InvalidOperationException("No old appids format found in applist!");
+            }
+
+            int i = 0;
             foreach (var appid in appids)
             {
-                string pathTxt = Path.Combine(applistPath, $"{i}.txt");
-                File.WriteAllText(pathTxt, appid.ToString());
+                if (i >= oldAppids.Count) break;
+                applistIniData["AppList"][oldAppids[i]] = appid.ToString();
                 i++;
             }
+            applistIniData["AppList"]["NumAppIDs"] = i.ToString();
+
+            var applistIniTargetPath = Path.Combine(applistPath, "AppList.ini");
+            parser.WriteFile(applistIniTargetPath, applistIniData, new System.Text.UTF8Encoding(false));
 
             if (mode == GreenLumaMode.Normal)
             {
