@@ -23,3 +23,4 @@ It's fully portable, no installer required.
 - [SteamKit2](https://github.com/steamre/steamkit)
 - [WPF UI by lepoco](https://github.com/lepoco/wpfui)
 - [TaskScheduler](https://github.com/dahall/taskscheduler)
+- [ini-parser](https://github.com/rickyah/ini-parser)
